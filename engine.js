@@ -167,22 +167,36 @@ export class Engine {
     const c=this.controllers[i]; c.getWorldPosition(origin);
     dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
   }
-  // Filet réutilisable (papillons, canards…). userData.cp = point de capture.
+  // Filet de capture (papillons). userData.cp = point de capture.
   makeNet(i){
     const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
-    const handle=new T.Mesh(new T.CylinderGeometry(0.009,0.011,0.16,10), new T.MeshStandardMaterial({color:0x1a2030,roughness:.6,metalness:.4}));
-    handle.rotation.x=Math.PI/2; handle.position.z=-0.08; g.add(handle);
-    const ring=new T.Mesh(new T.TorusGeometry(0.075,0.006,10,28), new T.MeshBasicMaterial({color})); ring.position.z=-0.16; g.add(ring);
-    const bag=new T.Mesh(new T.ConeGeometry(0.075,0.14,16,1,true), new T.MeshBasicMaterial({color,transparent:true,opacity:.22,side:T.DoubleSide}));
-    bag.rotation.x=Math.PI/2; bag.position.z=-0.23; g.add(bag);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.16); g.add(cp); g.userData.cp=cp;
+    const handle=new T.Mesh(new T.CylinderGeometry(0.008,0.010,0.20,10), new T.MeshStandardMaterial({color:0x6b4a2a,roughness:.85}));
+    handle.rotation.x=Math.PI/2; handle.position.z=-0.10; g.add(handle);
+    const hoop=new T.Mesh(new T.TorusGeometry(0.10,0.007,12,32), new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.6,roughness:.4,metalness:.3}));
+    hoop.position.z=-0.24; g.add(hoop);
+    const bag=new T.Mesh(new T.ConeGeometry(0.10,0.11,20,1,true), new T.MeshBasicMaterial({color,transparent:true,opacity:.14,side:T.DoubleSide}));
+    bag.rotation.x=Math.PI/2; bag.position.z=-0.295; g.add(bag);
+    const mesh=new T.Mesh(new T.ConeGeometry(0.10,0.11,10,3,true), new T.MeshBasicMaterial({color,wireframe:true,transparent:true,opacity:.35}));
+    mesh.rotation.x=Math.PI/2; mesh.position.z=-0.295; g.add(mesh);
+    const cp=new T.Object3D(); cp.position.set(0,0,-0.26); g.add(cp); g.userData.cp=cp;
+    return g;
+  }
+  // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
+  makeHook(i){
+    const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
+    const pole=new T.Mesh(new T.CylinderGeometry(0.008,0.009,0.30,10), new T.MeshStandardMaterial({color:0x6b4a2a,roughness:.85}));
+    pole.rotation.x=Math.PI/2; pole.position.z=-0.15; g.add(pole);
+    const hook=new T.Mesh(new T.TorusGeometry(0.032,0.006,10,18,Math.PI*1.5), new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.6,roughness:.4,metalness:.4}));
+    hook.position.set(0,-0.025,-0.31); hook.rotation.set(0,Math.PI/2,Math.PI*0.5); g.add(hook);
+    const cp=new T.Object3D(); cp.position.set(0,-0.05,-0.32); g.add(cp); g.userData.cp=cp;
     return g;
   }
   eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); cb(this._tmp,i); } }
-  // Échange l'outil en main : masque le maillet par défaut et attache l'objet renvoyé par fn(i) au contrôleur.
-  setTool(fn){
+  // Échange l'outil en main. space='grip' (tenu) ou 'ray' (aligné sur la visée).
+  setTool(fn, space){
     this.clearTool();
-    for(let i=0;i<this.grips.length;i++){ this.malletVisual[i].visible=false; const tool=fn(i); if(tool){ this.grips[i].add(tool); this._tools.push(tool); } }
+    const parents = space==='ray' ? this.controllers : this.grips;
+    for(let i=0;i<parents.length;i++){ this.malletVisual[i].visible=false; const tool=fn(i); if(tool){ parents[i].add(tool); this._tools.push(tool); } }
   }
   clearTool(){
     for(const tl of this._tools){ tl.parent && tl.parent.remove(tl); }
@@ -199,14 +213,14 @@ export class Engine {
   }
   _rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
   _buildPanels(){
-    this.hud=this._makePanel(0.9,0.26,900); this.hud.mesh.position.set(0,2.02,-0.55); this.scene.add(this.hud.mesh); this.hud.mesh.visible=false;
-    this.board=this._makePanel(0.9,0.62,900); this.board.mesh.position.set(0,1.66,-0.9); this.scene.add(this.board.mesh); this.board.mesh.visible=false;
+    this.hud=this._makePanel(0.94,0.27,940); this.hud.mesh.position.set(0,2.05,-0.72); this.scene.add(this.hud.mesh); this.hud.mesh.visible=false;
+    this.board=this._makePanel(1.1,0.74,1000); this.board.mesh.position.set(0,1.5,-1.25); this.scene.add(this.board.mesh); this.board.mesh.visible=false;
   }
   drawHUD(){
     const c=this.hud.ctx, W=this.hud.canvas.width, H=this.hud.canvas.height; c.clearRect(0,0,W,H);
     c.fillStyle='rgba(19,24,38,.86)'; this._rr(c,0,0,W,H,26); c.fill();
     c.strokeStyle='rgba(46,230,214,.5)'; c.lineWidth=3; this._rr(c,2,2,W-4,H-4,24); c.stroke();
-    const cell=(label,val,x,col)=>{ c.textAlign='center'; c.fillStyle='#8b93a7'; c.font='700 26px Segoe UI, sans-serif'; c.fillText(label,x,54); c.fillStyle=col; c.font='900 74px Segoe UI, sans-serif'; c.fillText(val,x,132); };
+    const cell=(label,val,x,col)=>{ c.textAlign='center'; c.fillStyle='#8b93a7'; c.font='700 26px Segoe UI, sans-serif'; c.fillText(label,x,56); c.fillStyle=col; c.font='900 74px Segoe UI, sans-serif'; c.fillText(val,x,136); };
     cell(this.t('score'),String(this.score),W*0.2,'#f4f6fb');
     cell(this.t('combo'),'x'+this.combo,W*0.5,'#b8f34d');
     cell(this.t('time2'),Math.max(0,Math.ceil(this.timeLeft))+'s',W*0.8,this.timeLeft<=5?'#ff4d5e':'#2ee6d6');
@@ -216,8 +230,16 @@ export class Engine {
     const c=this.board.ctx, W=this.board.canvas.width, H=this.board.canvas.height; c.clearRect(0,0,W,H);
     c.fillStyle='rgba(15,20,34,.9)'; this._rr(c,0,0,W,H,34); c.fill();
     c.strokeStyle='rgba(139,108,255,.6)'; c.lineWidth=4; this._rr(c,3,3,W-6,H-6,30); c.stroke();
-    c.textAlign='center'; let y=120;
-    for(const ln of lines){ c.fillStyle=ln.col||'#f4f6fb'; c.font=(ln.w||'900')+' '+(ln.s||70)+'px Segoe UI, sans-serif'; for(const p of ln.text.split('\n')){ c.fillText(p,W/2,y); y+=(ln.s||70)*1.02; } y+=ln.gap||14; }
+    c.textAlign='center';
+    const subs=lines.map(ln=>ln.text.split('\n'));
+    let total=0; lines.forEach((ln,i)=>{ total += subs[i].length*(ln.s||70)*1.02 + (ln.gap||14); });
+    total -= (lines[lines.length-1].gap||14);
+    let y=(H-total)/2;
+    lines.forEach((ln,i)=>{
+      c.fillStyle=ln.col||'#f4f6fb'; c.font=(ln.w||'900')+' '+(ln.s||70)+'px Segoe UI, sans-serif';
+      for(const p of subs[i]){ y+=(ln.s||70)*0.80; c.fillText(p,W/2,y); y+=(ln.s||70)*0.22; }
+      y+=(ln.gap||14);
+    });
     this.board.tex.needsUpdate=true;
   }
   showBoard(v){ this.board.mesh.visible=v; }

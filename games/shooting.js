@@ -48,14 +48,26 @@ function makeTarget(type){
 
 function makeGun(i){
   const color=[0x2ee6d6,0xff4d5e][i]; const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.06,0.12), new THREE.MeshStandardMaterial({color:0x1a2030,roughness:.5,metalness:.5}));
-  body.position.set(0,-0.01,-0.04); g.add(body);
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.014,0.14,12), new THREE.MeshStandardMaterial({color:0x2a3245,roughness:.4,metalness:.6}));
-  barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.006,-0.12); g.add(barrel);
-  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.016,12,10), new THREE.MeshBasicMaterial({color})); tip.position.set(0,0.006,-0.19); g.add(tip);
-  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.0016,0.0016,4,6), new THREE.MeshBasicMaterial({color,transparent:true,opacity:.16}));
-  beam.rotation.x=Math.PI/2; beam.position.set(0,0.006,-2.19); g.add(beam);
-  g.userData.tip=tip; g.userData.color=color;
+  const bodyMat=new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.22, roughness:.5, metalness:.15});
+  const accent=new THREE.MeshStandardMaterial({color:0xf4f6fb, roughness:.5});
+  const orange=new THREE.MeshStandardMaterial({color:0xff8a3c, emissive:0x5a2400, roughness:.5});
+  // corps arrondi (jouet)
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.07,0.13), bodyMat); body.position.set(0,-0.004,-0.05); g.add(body);
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.028,16,12), bodyMat); nose.scale.set(1,1,1.2); nose.position.set(0,0.004,-0.12); g.add(nose);
+  // poignée
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.034,0.085,0.045), bodyMat); grip.position.set(0,-0.065,0.015); grip.rotation.x=0.28; g.add(grip);
+  // gros canon
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.022,0.12,16), accent); barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.006,-0.16); g.add(barrel);
+  // embout orange (sécurité jouet)
+  const tip=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.03,16), orange); tip.rotation.x=Math.PI/2; tip.position.set(0,0.006,-0.235); g.add(tip);
+  // viseur sur le dessus
+  const sight=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.018,0.02), accent); sight.position.set(0,0.05,-0.05); g.add(sight);
+  // pastille lumineuse (muzzle)
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.013,12,10), new THREE.MeshBasicMaterial({color})); glow.position.set(0,0.006,-0.25); g.add(glow);
+  // faisceau de visée aligné (le long de -Z du contrôleur)
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.0018,0.0018,6,6), new THREE.MeshBasicMaterial({color, transparent:true, opacity:.3}));
+  beam.rotation.x=Math.PI/2; beam.position.set(0,0.006,-3.25); g.add(beam);
+  g.userData.tip=glow; g.userData.color=color;
   return g;
 }
 
@@ -72,7 +84,7 @@ export default {
 
   start(engine){
     this._guns=[];
-    engine.setTool((i)=>{ const gun=makeGun(i); this._guns[i]=gun; return gun; });
+    engine.setTool((i)=>{ const gun=makeGun(i); this._guns[i]=gun; return gun; }, 'ray');
     for(const o of this._active.slice()) engine.field.remove(o.group);
     for(const tr of this._tracers) engine.scene.remove(tr.mesh);
     this._active.length=0; this._tracers.length=0; this._flash=[0,0]; this._spawnTimer=0.4;

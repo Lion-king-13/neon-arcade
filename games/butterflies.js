@@ -48,11 +48,11 @@ function makeButterfly(type, color){
   [-1,1].forEach(sx=>{
     const foreH=new THREE.Group(); g.add(foreH);
     const fore=new THREE.Mesh(r.wingGeo, wMat); fore.rotation.x=-Math.PI/2;
-    fore.scale.set(0.055,1,0.07); fore.position.set(sx*0.055,0,0.012);
+    fore.scale.set(0.05,1,0.05); fore.position.set(sx*0.045,0,0.008);
     foreH.add(fore); wings.push({h:foreH, sx, base:0.15, amp:isBee?1.1:0.9});
     const hindH=new THREE.Group(); g.add(hindH);
     const hind=new THREE.Mesh(r.wingGeo, wMat2); hind.rotation.x=-Math.PI/2;
-    hind.scale.set(0.042,1,0.05); hind.position.set(sx*0.04,0,-0.02);
+    hind.scale.set(0.036,1,0.036); hind.position.set(sx*0.032,0,-0.018);
     hindH.add(hind); wings.push({h:hindH, sx, base:0.05, amp:isBee?1.1:0.8});
   });
   g.userData.wings=wings; g.userData.bee=isBee;
