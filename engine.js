@@ -29,6 +29,8 @@ export class Engine {
 
     this._buildScene();
     this._buildForest();
+    this._buildMeadow();
+    this._buildCarnival();
     this._buildRetro();
     this._buildControllers();
     this._buildPanels();
@@ -94,6 +96,83 @@ export class Engine {
   }
   _updateFireflies(time){ for(const f of this.fireflies){ f.mesh.position.x=f.base.x+Math.sin(time*f.sp+f.ph)*0.25; f.mesh.position.y=f.base.y+Math.sin(time*f.sp*0.7+f.ph)*0.18; f.mesh.position.z=f.base.z+Math.cos(time*f.sp+f.ph)*0.25; } }
 
+  /* ---------- Décor prairie (jour) ---------- */
+  _gradSky(stops){
+    const cv=document.createElement('canvas'); cv.width=16; cv.height=256; const g=cv.getContext('2d');
+    const grad=g.createLinearGradient(0,0,0,256); for(const s of stops) grad.addColorStop(s[0],s[1]);
+    g.fillStyle=grad; g.fillRect(0,0,16,256); return new THREE.CanvasTexture(cv);
+  }
+  _buildMeadow(){
+    this.meadow=new THREE.Group(); this.scene.add(this.meadow); this.meadow.visible=false;
+    this.meadowSky=this._gradSky([[0,'#8fd1ff'],[0.5,'#bfe6ff'],[0.82,'#e8f7d8'],[1,'#a9d873']]);
+    const ground=new THREE.Mesh(new THREE.CircleGeometry(16,48), new THREE.MeshStandardMaterial({color:0x4b9c3a, roughness:1}));
+    ground.rotation.x=-Math.PI/2; this.meadow.add(ground);
+    const sun=new THREE.Mesh(new THREE.SphereGeometry(0.9,20,16), new THREE.MeshBasicMaterial({color:0xfff3c0})); sun.position.set(3.5,5,-7); this.meadow.add(sun);
+    // fleurs
+    const stemMat=new THREE.MeshStandardMaterial({color:0x2f7d2f, roughness:.8});
+    const petalCols=[0xff6b9d,0xffd54a,0x8b6cff,0xff4d5e,0xffffff,0x4db8ff];
+    for(let i=0;i<40;i++){
+      const a=Math.random()*Math.PI*2, rad=2.2+Math.random()*7;
+      const fx=Math.cos(a)*rad, fz=Math.sin(a)*rad, h=0.25+Math.random()*0.4;
+      const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.012,h,5), stemMat); stem.position.set(fx,h/2,fz); this.meadow.add(stem);
+      const col=petalCols[(Math.random()*petalCols.length)|0];
+      const head=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,6), new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:.25, roughness:.6}));
+      head.position.set(fx,h+0.03,fz); this.meadow.add(head);
+      const ctr=new THREE.Mesh(new THREE.SphereGeometry(0.02,6,6), new THREE.MeshBasicMaterial({color:0xffe08a})); ctr.position.set(fx,h+0.03,fz); this.meadow.add(ctr);
+    }
+    // buissons lointains
+    const bushMat=new THREE.MeshStandardMaterial({color:0x2e6b2e, roughness:.9});
+    for(let i=0;i<10;i++){ const a=(i/10)*Math.PI*2; const b=new THREE.Mesh(new THREE.SphereGeometry(0.6+Math.random()*0.5,10,8), bushMat); b.scale.y=0.6; b.position.set(Math.cos(a)*9,0.2,Math.sin(a)*9); this.meadow.add(b); }
+  }
+
+  /* ---------- Décor fête foraine (soir) ---------- */
+  _buildCarnival(){
+    this.carnival=new THREE.Group(); this.scene.add(this.carnival); this.carnival.visible=false;
+    this.carnivalSky=this._gradSky([[0,'#241041'],[0.5,'#3b1a5e'],[0.8,'#7a3b6e'],[1,'#20122e']]);
+    const ground=new THREE.Mesh(new THREE.CircleGeometry(16,48), new THREE.MeshStandardMaterial({color:0x1a1428, roughness:1}));
+    ground.rotation.x=-Math.PI/2; this.carnival.add(ground);
+    const grid=new THREE.GridHelper(24,48,0xff2d95,0x3a1a4a); grid.material.transparent=true; grid.material.opacity=0.3; this.carnival.add(grid);
+    // tentes rayées
+    const tentCols=[0xff4d5e,0x2ee6d6,0xffd54a];
+    for(let k=0;k<3;k++){
+      const a=-1.1+k*1.1; const tx=Math.cos(a)*6, tz=-4-Math.abs(Math.sin(a))*2;
+      const base=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,1.4,16,1,true), new THREE.MeshStandardMaterial({color:0xf4f6fb, roughness:.7, side:THREE.DoubleSide})); base.position.set(tx,0.7,tz); this.carnival.add(base);
+      const roof=new THREE.Mesh(new THREE.ConeGeometry(1.35,1.0,16), new THREE.MeshStandardMaterial({color:tentCols[k], emissive:tentCols[k], emissiveIntensity:.25, roughness:.6})); roof.position.set(tx,1.9,tz); this.carnival.add(roof);
+    }
+    // grande roue (silhouette néon)
+    const wheel=new THREE.Group(); wheel.position.set(-7,3.4,-9);
+    const rimMat=new THREE.MeshBasicMaterial({color:0x2ee6d6});
+    wheel.add(new THREE.Mesh(new THREE.TorusGeometry(3,0.05,8,40), rimMat));
+    wheel.add(new THREE.Mesh(new THREE.TorusGeometry(2,0.03,8,40), rimMat));
+    for(let s=0;s<12;s++){ const ang=s/12*Math.PI*2; const spoke=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,3,6), rimMat); spoke.position.set(Math.cos(ang)*1.5,Math.sin(ang)*1.5,0); spoke.rotation.z=ang+Math.PI/2; wheel.add(spoke); const cab=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,6), new THREE.MeshBasicMaterial({color:0xffd54a})); cab.position.set(Math.cos(ang)*3,Math.sin(ang)*3,0); wheel.add(cab); }
+    this.carnival.add(wheel); this._ferris=wheel;
+    // guirlandes lumineuses (arcs d'ampoules)
+    this._carnivalLights=[];
+    const bulbCols=[0xff4d5e,0xffd54a,0x2ee6d6,0xb8f34d,0xff2d95];
+    for(let arc=0;arc<3;arc++){
+      const y=2.4+arc*0.15, R=5+arc*1.5;
+      for(let b=0;b<24;b++){
+        const t=b/23, ang=Math.PI*(0.15+0.7*t);
+        const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,6), new THREE.MeshBasicMaterial({color:bulbCols[b%bulbCols.length]}));
+        bulb.position.set(Math.cos(ang)*R, y+Math.sin(t*Math.PI)*0.6, -6-Math.sin(ang)*1.5);
+        this.carnival.add(bulb); this._carnivalLights.push({mesh:bulb, ph:Math.random()*6});
+      }
+    }
+  }
+  _updateCarnival(time){
+    if(this._ferris) this._ferris.rotation.z = time*0.15;
+    for(const l of this._carnivalLights){ l.mesh.material.opacity = 0.6+0.4*Math.sin(time*4+l.ph); l.mesh.material.transparent=true; }
+  }
+
+  _showTheme(name){
+    const f=name==='forest';
+    this.grid.visible=f; this.floor.visible=f; this.rim.visible=f; this.env.visible=f;
+    this.meadow.visible=name==='meadow'; this.carnival.visible=name==='carnival';
+    if(name==='forest'){ this.scene.background=this.skyTex; this.scene.fog=new THREE.FogExp2(0x0a1a17,0.085); }
+    else if(name==='meadow'){ this.scene.background=this.meadowSky; this.scene.fog=new THREE.FogExp2(0xcdeaff,0.016); }
+    else if(name==='carnival'){ this.scene.background=this.carnivalSky; this.scene.fog=new THREE.FogExp2(0x1a1030,0.04); }
+  }
+
   /* ---------- Décor rétro (hub) ---------- */
   _makeRetroSky(){
     const cv=document.createElement('canvas'); cv.width=16; cv.height=256; const g=cv.getContext('2d');
@@ -137,10 +216,11 @@ export class Engine {
 
   useEnvironment(kind){
     const retro=kind==='hub', vr=kind==='gameVR', ar=kind==='gameAR';
-    this.retro.visible=retro; this.env.visible=vr; this.grid.visible=vr; this.floor.visible=vr; this.rim.visible=vr;
+    this.retro.visible=retro;
+    this._showTheme(vr ? (this.gameTheme||'forest') : null);
     if(ar){ this.scene.background=null; this.scene.fog=null; this.renderer.setClearAlpha(0); }
     else if(retro){ this.scene.background=this.retroSky; this.scene.fog=new THREE.FogExp2(0x140a2e,0.032); this.renderer.setClearAlpha(1); }
-    else { this.scene.background=this.skyTex; this.scene.fog=new THREE.FogExp2(0x0a1a17,0.085); this.renderer.setClearAlpha(1); }
+    else { this.renderer.setClearAlpha(1); } // gameVR : fond/brume posés par _showTheme
   }
 
   /* ---------- Contrôleurs ---------- */
@@ -168,23 +248,30 @@ export class Engine {
     const c=this.controllers[i]; c.getWorldPosition(origin);
     dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
   }
-  // Filet de capture télescopique (papillons). userData.cp = point de capture.
+  // Filet de capture néon. userData.cp = point de capture.
   makeNet(i){
-    const T=this.THREE; const g=new T.Group();
+    const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
     const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
-    const white=new T.MeshBasicMaterial({color:0xf4f6fb, transparent:true, opacity:.16, side:T.DoubleSide});
-    const netWire=new T.MeshBasicMaterial({color:0xffffff, wireframe:true, transparent:true, opacity:.4});
-    // manche : poignée noire (côté main) + 2 segments argentés télescopiques
+    // manche télescopique
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.02; g.add(grip);
     const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.16,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.11; g.add(seg1);
     const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.14,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.24; g.add(seg2);
-    // cerceau métallique
-    const hoop=new T.Mesh(new T.TorusGeometry(0.115,0.006,12,40), silver); hoop.position.z=-0.33; g.add(hoop);
-    // poche blanche profonde + maillage
-    const bag=new T.Mesh(new T.ConeGeometry(0.115,0.20,24,1,true), white); bag.rotation.x=-Math.PI/2; bag.position.z=-0.43; g.add(bag);
-    const mesh=new T.Mesh(new T.ConeGeometry(0.115,0.20,14,4,true), netWire); mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.43; g.add(mesh);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.36); g.add(cp); g.userData.cp=cp;
+    // cerceau néon
+    const hoop=new T.Mesh(new T.TorusGeometry(0.115,0.008,12,40), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.8, roughness:.4, metalness:.3}));
+    hoop.position.z=-0.33; g.add(hoop);
+    // poche : anneaux dégressifs (converge vers l'arrière = vrai filet)
+    const ringMat=new T.MeshBasicMaterial({color, transparent:true, opacity:.65});
+    const rings=6;
+    for(let k=1;k<=rings;k++){
+      const rad=0.115*(1 - k/(rings+1));
+      const rg=new T.Mesh(new T.TorusGeometry(rad, 0.0035, 8, 24), ringMat);
+      rg.position.z=-0.33 - k*0.045; g.add(rg);
+    }
+    // voile translucide coloré (fond du filet)
+    const veil=new T.Mesh(new T.ConeGeometry(0.113,0.30,18,4,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.12, side:T.DoubleSide}));
+    veil.rotation.x=-Math.PI/2; veil.position.z=-0.48; g.add(veil);
+    const cp=new T.Object3D(); cp.position.set(0,0,-0.37); g.add(cp); g.userData.cp=cp;
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -403,6 +490,7 @@ export class Engine {
     this.hub?.hide?.();
     this.currentGame=game; game.init?.(this); this.clearField(); this.sfx.pick();
     const ar = this.settings.mode==='ar';
+    this.gameTheme = game.theme || 'forest';
     this.useEnvironment(ar?'gameAR':'gameVR');
     if(ar && game.usesSurfaces){
       this.state='scan'; this.scanT=0; this.scanBest=[]; this.setButtons([]); this.showBoard(true);
@@ -478,6 +566,7 @@ export class Engine {
 
     this._updateParticles(dt);
     if(this.env.visible) this._updateFireflies(time);
+    if(this.carnival.visible) this._updateCarnival(time);
 
     if(this.state==='scan'){
       this.scanT+=dt; const spots=this.sampleSpots(frame); if(spots.length>this.scanBest.length) this.scanBest=spots;

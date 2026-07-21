@@ -99,6 +99,7 @@ import butterflies from './games/butterflies.js';
 import ducks from './games/ducks.js';
 import shooting from './games/shooting.js';
 import balloons from './games/balloons.js';
+import chamboultout from './games/chamboultout.js';
 
 const T = {
   fr:{
@@ -124,7 +125,7 @@ let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
 const t = k => T[lang][k];
 
 const engine = new Engine();
-engine.registerGames([whackamole, butterflies, ducks, shooting, balloons]);
+engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout]);
 const hub = new Hub(engine);
 engine.setHub(hub);
 

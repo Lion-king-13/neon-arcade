@@ -62,6 +62,7 @@ export default {
   name:{fr:'Pêche aux Canards', en:'Duck Pond'},
   color:'#2ee6d6',
   usesSurfaces:false,
+  theme:'meadow',
 
   _active:[], _spawnTimer:0, _hooks:[], _hooked:[null,null], _basket:null,
 

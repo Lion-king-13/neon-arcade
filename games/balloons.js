@@ -48,6 +48,7 @@ export default {
   color:'#ff2d95',
   usesSurfaces:false,
   chooseOptions:true,
+  theme:'carnival',
 
   _active:[], _spawnTimer:0, _weapon:'fist', _guns:[], _flash:[0,0], _tracers:[],
 

@@ -76,6 +76,7 @@ export default {
   name:{fr:'Stand de Tir', en:'Shooting Range'},
   color:'#ff2d95',
   usesSurfaces:false,
+  theme:'carnival',
 
   _active:[], _spawnTimer:0, _guns:[], _flash:[0,0], _tracers:[],
 
