@@ -6,7 +6,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const HOOK_R = 0.11;      // tolérance pour passer le crochet dans l'anneau
-const BASKET = new THREE.Vector3(0, 0.95, -0.28);
+const BASKET = new THREE.Vector3(0, 0.80, -0.28);
 const BASKET_R = 0.20;
 const IN_R = 0.60, OUT_R = 1.00, WATER_Y = 0.62;
 

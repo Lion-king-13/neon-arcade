@@ -3,7 +3,7 @@
 // chaque main. Papillon coloré = +1, doré = +5, abeille = à éviter (−3).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-const CATCH_R = 0.14;
+const CATCH_R = 0.10;
 // volume de vol (à portée, devant le joueur)
 const CENTER = new THREE.Vector3(0, 1.4, -0.7);
 const HALF = new THREE.Vector3(0.72, 0.42, 0.34);
@@ -48,12 +48,12 @@ function makeButterfly(type, color){
   [-1,1].forEach(sx=>{
     const foreH=new THREE.Group(); g.add(foreH);
     const fore=new THREE.Mesh(r.wingGeo, wMat); fore.rotation.x=-Math.PI/2;
-    fore.scale.set(0.05,1,0.05); fore.position.set(sx*0.045,0,0.008);
-    foreH.add(fore); wings.push({h:foreH, sx, base:0.15, amp:isBee?1.1:0.9});
+    fore.scale.set(0.030,1,0.032); fore.position.set(sx*0.026,0,0.006);
+    foreH.add(fore); wings.push({h:foreH, sx, base:0.15, amp:isBee?1.0:0.85});
     const hindH=new THREE.Group(); g.add(hindH);
     const hind=new THREE.Mesh(r.wingGeo, wMat2); hind.rotation.x=-Math.PI/2;
-    hind.scale.set(0.036,1,0.036); hind.position.set(sx*0.032,0,-0.018);
-    hindH.add(hind); wings.push({h:hindH, sx, base:0.05, amp:isBee?1.1:0.8});
+    hind.scale.set(0.022,1,0.024); hind.position.set(sx*0.018,0,-0.014);
+    hindH.add(hind); wings.push({h:hindH, sx, base:0.05, amp:isBee?1.0:0.75});
   });
   g.userData.wings=wings; g.userData.bee=isBee;
   return g;

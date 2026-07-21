@@ -25,17 +25,18 @@ export class Hub {
   _addOrb(item, yaw){
     const T=THREE, r=0.9;
     const x=Math.sin(yaw)*r, z=-Math.cos(yaw)*r;
+    const col = item.locked ? '#5b6472' : item.color;
     const orb=new T.Mesh(new T.SphereGeometry(0.06,24,18),
-      new T.MeshStandardMaterial({color:item.color, emissive:item.color, emissiveIntensity:.7, roughness:.3}));
+      new T.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:item.locked?0.25:0.7, roughness:.3}));
     const ring=new T.Mesh(new T.TorusGeometry(0.1,0.006,10,32),
-      new T.MeshBasicMaterial({color:item.color, transparent:true, opacity:.75}));
+      new T.MeshBasicMaterial({color:col, transparent:true, opacity:item.locked?0.35:0.75}));
     const halo=new T.Mesh(new T.SphereGeometry(0.085,18,14),
-      new T.MeshBasicMaterial({color:item.color, transparent:true, opacity:.12}));
+      new T.MeshBasicMaterial({color:col, transparent:true, opacity:item.locked?0.05:0.12}));
     const g=new T.Group(); g.add(orb); g.add(ring); g.add(halo);
     const base=new T.Vector3(x,1.34,z); g.position.copy(base);
-    const lbl=this._label(item.label, item.color); lbl.position.set(x,1.16,z);
+    const lbl=this._label((item.locked?'🔒 ':'')+item.label, col); lbl.position.set(x,1.16,z);
     this.group.add(g); this.group.add(lbl);
-    this.orbs.push({g, orb, ring, lbl, base, action:item.action, cd:0.7, ph:Math.random()*6, hex:new T.Color(item.color).getHex()});
+    this.orbs.push({g, orb, ring, lbl, base, action:item.action, locked:!!item.locked, cd:0.7, ph:Math.random()*6, hex:new T.Color(col).getHex()});
   }
 
   hide(){ this._clear(); this.group.visible=false; }
@@ -48,7 +49,12 @@ export class Hub {
     e.drawBoard([{text:'NEON ARCADE', s:78, col:'#ff2d95', gap:8},{text:e.t('choose'), s:44, col:'#2ee6d6'}]);
     e.showBoard(true);
 
-    const items=e.games.map(g=>({label:(g.name[e.lang]||g.name.fr), color:g.color||'#2ee6d6', action:()=>e.selectGame(g)}));
+    const items=e.games.map(g=>({
+      label:(g.name[e.lang]||g.name.fr),
+      color:g.color||'#2ee6d6',
+      locked: !!g.dlc && !e.entitled('special'),
+      action:()=>e.selectGame(g)
+    }));
     items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
     const n=items.length;
     const step=Math.min(0.42, 1.9/n);           // écartement angulaire (rad)
@@ -74,9 +80,12 @@ export class Hub {
       const target=near?1.35:1.0;
       const s=o.orb.scale.x + (target-o.orb.scale.x)*Math.min(1,dt*10);
       o.orb.scale.setScalar(s);
-      o.orb.material.emissiveIntensity = near?1.1:0.7;
+      o.orb.material.emissiveIntensity = o.locked ? 0.25 : (near?1.1:0.7);
       o.lbl.quaternion.copy(e._vq);
     }
-    if(pending){ e.sfx.pick(); e.burst(pending.g.position, pending.hex); const act=pending.action; act(); }
+    if(pending){
+      if(pending.locked){ e.sfx.bad(); e.popup(pending.g.position, 'DLC', '#8b93a7'); }
+      else { e.sfx.pick(); e.burst(pending.g.position, pending.hex); const act=pending.action; act(); }
+    }
   }
 }

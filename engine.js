@@ -34,6 +34,7 @@ export class Engine {
     this._buildPanels();
     this._buildAudio();
 
+    this._initEntitlements();
     this.clock=new THREE.Clock();
     this.useEnvironment('hub');           // arrière-plan du menu 2D = rétro
     this.renderer.setAnimationLoop((t,frame)=>this._render(frame));
@@ -167,18 +168,23 @@ export class Engine {
     const c=this.controllers[i]; c.getWorldPosition(origin);
     dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
   }
-  // Filet de capture (papillons). userData.cp = point de capture.
+  // Filet de capture télescopique (papillons). userData.cp = point de capture.
   makeNet(i){
-    const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
-    const handle=new T.Mesh(new T.CylinderGeometry(0.008,0.010,0.20,10), new T.MeshStandardMaterial({color:0x6b4a2a,roughness:.85}));
-    handle.rotation.x=Math.PI/2; handle.position.z=-0.10; g.add(handle);
-    const hoop=new T.Mesh(new T.TorusGeometry(0.10,0.007,12,32), new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.6,roughness:.4,metalness:.3}));
-    hoop.position.z=-0.24; g.add(hoop);
-    const bag=new T.Mesh(new T.ConeGeometry(0.10,0.11,20,1,true), new T.MeshBasicMaterial({color,transparent:true,opacity:.14,side:T.DoubleSide}));
-    bag.rotation.x=Math.PI/2; bag.position.z=-0.295; g.add(bag);
-    const mesh=new T.Mesh(new T.ConeGeometry(0.10,0.11,10,3,true), new T.MeshBasicMaterial({color,wireframe:true,transparent:true,opacity:.35}));
-    mesh.rotation.x=Math.PI/2; mesh.position.z=-0.295; g.add(mesh);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.26); g.add(cp); g.userData.cp=cp;
+    const T=this.THREE; const g=new T.Group();
+    const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
+    const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
+    const white=new T.MeshBasicMaterial({color:0xf4f6fb, transparent:true, opacity:.16, side:T.DoubleSide});
+    const netWire=new T.MeshBasicMaterial({color:0xffffff, wireframe:true, transparent:true, opacity:.4});
+    // manche : poignée noire (côté main) + 2 segments argentés télescopiques
+    const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.02; g.add(grip);
+    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.16,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.11; g.add(seg1);
+    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.14,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.24; g.add(seg2);
+    // cerceau métallique
+    const hoop=new T.Mesh(new T.TorusGeometry(0.115,0.006,12,40), silver); hoop.position.z=-0.33; g.add(hoop);
+    // poche blanche profonde + maillage
+    const bag=new T.Mesh(new T.ConeGeometry(0.115,0.20,24,1,true), white); bag.rotation.x=-Math.PI/2; bag.position.z=-0.43; g.add(bag);
+    const mesh=new T.Mesh(new T.ConeGeometry(0.115,0.20,14,4,true), netWire); mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.43; g.add(mesh);
+    const cp=new T.Object3D(); cp.position.set(0,0,-0.36); g.add(cp); g.userData.cp=cp;
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -348,6 +354,22 @@ export class Engine {
   }
 
   /* ---------- Jeux / états ---------- */
+  /* ---------- Droits / DLC ---------- */
+  // La couche boutique (Meta IAP via Digital Goods API, ou autre) appelle unlockDLC()
+  // après achat. En dev/test : ?dlc=1 dans l'URL, ou engine.unlockDLC() dans la console.
+  _initEntitlements(){
+    this.entitlements={ special:false };
+    try{
+      const q=new URLSearchParams(location.search);
+      if(q.get('dlc')==='1') localStorage.setItem('neonarcade_dlc','1');
+      if(q.get('dlc')==='0') localStorage.removeItem('neonarcade_dlc');
+      if(localStorage.getItem('neonarcade_dlc')==='1') this.entitlements.special=true;
+    }catch(e){}
+  }
+  entitled(key){ return !!this.entitlements[key]; }
+  unlockDLC(){ this.entitlements.special=true; try{ localStorage.setItem('neonarcade_dlc','1'); }catch(e){} if(this.state==='hub') this.hub.render(); }
+  lockDLC(){ this.entitlements.special=false; try{ localStorage.removeItem('neonarcade_dlc'); }catch(e){} if(this.state==='hub') this.hub.render(); }
+
   registerGames(list){ this.games=list; for(const g of list) if(g.strings) this.addStrings(g.strings); }
   setHub(hub){ this.hub=hub; }
   clearField(){ while(this.field.children.length){ this.field.remove(this.field.children[0]); } }
