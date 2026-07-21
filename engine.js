@@ -197,6 +197,24 @@ export class Engine {
     const cp=new T.Object3D(); cp.position.set(0,-0.05,-0.32); g.add(cp); g.userData.cp=cp;
     return g;
   }
+  // Pistolet-jouet réutilisable (tir, ballons…). userData.tip = pastille (flash), userData.color.
+  makeGun(i){
+    const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
+    const bodyMat=new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.22, roughness:.5, metalness:.15});
+    const accent=new T.MeshStandardMaterial({color:0xf4f6fb, roughness:.5});
+    const orange=new T.MeshStandardMaterial({color:0xff8a3c, emissive:0x5a2400, roughness:.5});
+    const body=new T.Mesh(new T.BoxGeometry(0.045,0.07,0.13), bodyMat); body.position.set(0,-0.004,-0.05); g.add(body);
+    const nose=new T.Mesh(new T.SphereGeometry(0.028,16,12), bodyMat); nose.scale.set(1,1,1.2); nose.position.set(0,0.004,-0.12); g.add(nose);
+    const grip=new T.Mesh(new T.BoxGeometry(0.034,0.085,0.045), bodyMat); grip.position.set(0,-0.065,0.015); grip.rotation.x=0.28; g.add(grip);
+    const barrel=new T.Mesh(new T.CylinderGeometry(0.02,0.022,0.12,16), accent); barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.006,-0.16); g.add(barrel);
+    const tip=new T.Mesh(new T.CylinderGeometry(0.024,0.024,0.03,16), orange); tip.rotation.x=Math.PI/2; tip.position.set(0,0.006,-0.235); g.add(tip);
+    const sight=new T.Mesh(new T.BoxGeometry(0.006,0.018,0.02), accent); sight.position.set(0,0.05,-0.05); g.add(sight);
+    const glow=new T.Mesh(new T.SphereGeometry(0.013,12,10), new T.MeshBasicMaterial({color})); glow.position.set(0,0.006,-0.25); g.add(glow);
+    const beam=new T.Mesh(new T.CylinderGeometry(0.0018,0.0018,6,6), new T.MeshBasicMaterial({color, transparent:true, opacity:.3}));
+    beam.rotation.x=Math.PI/2; beam.position.set(0,0.006,-3.25); g.add(beam);
+    g.userData.tip=glow; g.userData.color=color;
+    return g;
+  }
   eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); cb(this._tmp,i); } }
   // Échange l'outil en main. space='grip' (tenu) ou 'ray' (aligné sur la visée).
   setTool(fn, space){
@@ -389,7 +407,13 @@ export class Engine {
     if(ar && game.usesSurfaces){
       this.state='scan'; this.scanT=0; this.scanBest=[]; this.setButtons([]); this.showBoard(true);
       this.drawBoard([{text:'NEON ARCADE',s:60,col:'#b8f34d',gap:12},{text:this.t('scanning'),s:44,col:'#2ee6d6'}]);
-    } else { game.buildLayout(this,null); this._startCountdown(); }
+    } else { game.buildLayout(this,null); this._beginOrOptions(); }
+  }
+  // Si le jeu propose un choix pré-partie (ex: arme), on l'affiche ; sinon décompte direct.
+  _beginOrOptions(){
+    const g=this.currentGame;
+    if(g && g.chooseOptions){ this.state='options'; this.showBoard(true); this.showHUD(false); g.chooseOptions(this); }
+    else this._startCountdown();
   }
   _resetScore(){ this.score=0; this.combo=0; this.hits=0; this.misses=0; this.timeLeft=this.settings.dur; }
   _startCountdown(){
@@ -457,7 +481,7 @@ export class Engine {
 
     if(this.state==='scan'){
       this.scanT+=dt; const spots=this.sampleSpots(frame); if(spots.length>this.scanBest.length) this.scanBest=spots;
-      if(this.scanT>=1.8){ this.currentGame.buildLayout(this, this.scanBest.length>=6?this.scanBest:null); this._startCountdown(); }
+      if(this.scanT>=1.8){ this.currentGame.buildLayout(this, this.scanBest.length>=6?this.scanBest:null); this._beginOrOptions(); }
     } else if(this.state==='count'){
       this.countT+=dt; if(this.countT>=0.85){ this.countT=0; this.countN--;
         if(this.countN>0){ this.drawBoard([{text:String(this.countN),s:220,col:'#2ee6d6'}]); this.sfx.count(); }
