@@ -248,29 +248,29 @@ export class Engine {
     const c=this.controllers[i]; c.getWorldPosition(origin);
     dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
   }
-  // Filet de capture néon. userData.cp = point de capture.
+  // Filet de capture néon. Ouverture (cerceau) à l'avant, poche vers la main. userData.cp = capture.
   makeNet(i){
     const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
     const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
-    // manche télescopique
-    const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.02; g.add(grip);
-    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.16,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.11; g.add(seg1);
+    // manche
+    const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
+    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.14,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
     const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.14,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.24; g.add(seg2);
-    // cerceau néon
+    // cerceau (bouche) tout à l'avant
     const hoop=new T.Mesh(new T.TorusGeometry(0.115,0.008,12,40), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.8, roughness:.4, metalness:.3}));
-    hoop.position.z=-0.33; g.add(hoop);
-    // poche : anneaux dégressifs (converge vers l'arrière = vrai filet)
-    const ringMat=new T.MeshBasicMaterial({color, transparent:true, opacity:.65});
+    hoop.position.z=-0.38; g.add(hoop);
+    // poche : anneaux qui rétrécissent du cerceau (avant) vers la main
+    const ringMat=new T.MeshBasicMaterial({color, transparent:true, opacity:.6});
     const rings=6;
     for(let k=1;k<=rings;k++){
-      const rad=0.115*(1 - k/(rings+1));
+      const rad=0.108*(1 - k/(rings+1));
       const rg=new T.Mesh(new T.TorusGeometry(rad, 0.0035, 8, 24), ringMat);
-      rg.position.z=-0.33 - k*0.045; g.add(rg);
+      rg.position.z=-0.36 + k*0.024; g.add(rg);   // vers +z (main)
     }
-    // voile translucide coloré (fond du filet)
-    const veil=new T.Mesh(new T.ConeGeometry(0.113,0.30,18,4,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.12, side:T.DoubleSide}));
-    veil.rotation.x=-Math.PI/2; veil.position.z=-0.48; g.add(veil);
+    // voile translucide : base (large) au cerceau, pointe vers la main
+    const veil=new T.Mesh(new T.ConeGeometry(0.112,0.16,18,4,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.12, side:T.DoubleSide}));
+    veil.rotation.x=Math.PI/2; veil.position.z=-0.30; g.add(veil);
     const cp=new T.Object3D(); cp.position.set(0,0,-0.37); g.add(cp); g.userData.cp=cp;
     return g;
   }
@@ -490,7 +490,8 @@ export class Engine {
     this.hub?.hide?.();
     this.currentGame=game; game.init?.(this); this.clearField(); this.sfx.pick();
     const ar = this.settings.mode==='ar';
-    this.gameTheme = game.theme || 'forest';
+    const forced = this.settings.decor;
+    this.gameTheme = (forced && forced!=='auto') ? forced : (game.theme || 'forest');
     this.useEnvironment(ar?'gameAR':'gameVR');
     if(ar && game.usesSurfaces){
       this.state='scan'; this.scanT=0; this.scanBest=[]; this.setButtons([]); this.showBoard(true);

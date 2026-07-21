@@ -84,6 +84,15 @@
         <button data-v="120">120s</button>
       </div>
     </div>
+    <div>
+      <span class="lbl" id="lblDecor"></span>
+      <div class="seg" id="decor">
+        <button data-v="auto" class="on"></button>
+        <button data-v="forest"></button>
+        <button data-v="meadow"></button>
+        <button data-v="carnival"></button>
+      </div>
+    </div>
   </div>
 
   <button id="vrbtn" disabled></button>
@@ -106,6 +115,7 @@ const T = {
     tag:"Une arcade de mini-jeux à jouer debout, tout le corps engagé.",
     mode:"Mode", modeVR:"Immersion", modeAR:"Passthrough",
     diff:"Difficulté", time:"Durée", easy:"Tranquille", normal:"Normal", hard:"Intense",
+    decor:"Décor", dAuto:"Auto", dForest:"Forêt", dMeadow:"Prairie", dCarnival:"Foraine",
     enter:"Entrer en immersion", enterAR:"Entrer en réalité mixte", noVR:"Casque VR requis",
     needHeadset:"Ouvre cette page dans le navigateur du Meta Quest 3, puis appuie sur le bouton.",
     arNote:"Passthrough : le jeu utilise tes vrais murs, sol et plafond, dans ta zone Guardian.",
@@ -115,6 +125,7 @@ const T = {
     tag:"A mini-game arcade you play standing, with your whole body.",
     mode:"Mode", modeVR:"Immersive", modeAR:"Passthrough",
     diff:"Difficulty", time:"Duration", easy:"Chill", normal:"Normal", hard:"Intense",
+    decor:"Scenery", dAuto:"Auto", dForest:"Forest", dMeadow:"Meadow", dCarnival:"Fair",
     enter:"Enter immersive", enterAR:"Enter mixed reality", noVR:"VR headset required",
     needHeadset:"Open this page in the Meta Quest 3 browser, then press the button.",
     arNote:"Passthrough: the game uses your real walls, floor and ceiling, inside your Guardian area.",
@@ -132,7 +143,7 @@ engine.setHub(hub);
 const overlay = document.getElementById('overlay');
 const btn = document.getElementById('vrbtn');
 const statusEl = document.getElementById('status');
-const settings = { mode:'vr', diff:'normal', dur:60 };
+const settings = { mode:'vr', diff:'normal', dur:60, decor:'auto' };
 
 function wireSeg(id, key, cast, cb){
   const box = document.getElementById(id);
@@ -155,6 +166,7 @@ function updateEnterBtn(){
 wireSeg('mode','mode',null,updateEnterBtn);
 wireSeg('diff','diff');
 wireSeg('dur','dur',v=>parseInt(v,10));
+wireSeg('decor','decor');
 
 function renderMenu(){
   document.documentElement.lang = lang;
@@ -162,6 +174,8 @@ function renderMenu(){
   document.getElementById('lblMode').textContent = t('mode');
   document.getElementById('lblDiff').textContent = t('diff');
   document.getElementById('lblTime').textContent = t('time');
+  document.getElementById('lblDecor').textContent = t('decor');
+  const dc=document.getElementById('decor').children; dc[0].textContent=t('dAuto'); dc[1].textContent=t('dForest'); dc[2].textContent=t('dMeadow'); dc[3].textContent=t('dCarnival');
   const md=document.getElementById('mode').children; md[0].textContent=t('modeVR'); md[1].textContent=t('modeAR');
   const df=document.getElementById('diff').children; df[0].textContent=t('easy'); df[1].textContent=t('normal'); df[2].textContent=t('hard');
   document.getElementById('how').textContent = t('how');
@@ -176,6 +190,7 @@ btn.onclick = async ()=>{
     engine.lang = lang;
     engine.settings.diff = settings.diff;
     engine.settings.dur = settings.dur;
+    engine.settings.decor = settings.decor;
     await engine.enter(settings.mode);
     overlay.classList.add('hidden');
     document.getElementById('lang').style.display='none';
