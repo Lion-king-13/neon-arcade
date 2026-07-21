@@ -235,14 +235,18 @@ export class Engine {
       const ring=new THREE.Mesh(new THREE.TorusGeometry(0.058,0.008,10,24), new THREE.MeshBasicMaterial({color:COL[i]})); ring.position.z=-0.12; g.add(ring);
       grip.add(g); this.scene.add(grip); this.mallets.push(head); this.grips.push(grip); this.malletVisual.push(g);
     }
-    // contrôleurs "ray" pour la gâchette (jeux de tir)
-    this.controllers=[];
+    // contrôleurs "ray" : gâchette (tir) + relâchement (lancer)
+    this.controllers=[]; this._ctrlPrev=[new THREE.Vector3(),new THREE.Vector3()]; this._ctrlVel=[new THREE.Vector3(),new THREE.Vector3()];
     for(let i=0;i<2;i++){
       const c=this.renderer.xr.getController(i); this.scene.add(c);
       c.addEventListener('selectstart', ()=>{ if(this.state==='play') this.currentGame && this.currentGame.onTrigger && this.currentGame.onTrigger(i,this); });
+      c.addEventListener('selectend', ()=>{ if(this.state==='play') this.currentGame && this.currentGame.onRelease && this.currentGame.onRelease(i,this); });
       this.controllers.push(c);
     }
   }
+  controllerPos(i,out){ this.controllers[i].getWorldPosition(out); return out; }
+  controllerVel(i,out){ out.copy(this._ctrlVel[i]); return out; }
+  headPos(out){ if(this.renderer.xr.isPresenting) this.renderer.xr.getCamera().getWorldPosition(out); else this.camera.getWorldPosition(out); return out; }
   // Rayon de visée : remplit origin (position) et dir (direction -Z monde) du contrôleur i.
   aimRay(i, origin, dir){
     const c=this.controllers[i]; c.getWorldPosition(origin);
@@ -563,6 +567,10 @@ export class Engine {
   /* ---------- Boucle ---------- */
   _render(frame){
     const dt=Math.min(this.clock.getDelta(),0.05); const time=this.clock.elapsedTime;
+    if(this.controllers && this.controllers.length){
+      const idt=1/Math.max(dt,0.001);
+      for(let i=0;i<2;i++){ this.controllers[i].getWorldPosition(this._tmp); this._ctrlVel[i].subVectors(this._tmp, this._ctrlPrev[i]).multiplyScalar(idt); this._ctrlPrev[i].copy(this._tmp); }
+    }
     if(this.renderer.xr.isPresenting){ this.renderer.xr.getCamera().getWorldQuaternion(this._vq); } else this.camera.getWorldQuaternion(this._vq);
 
     this._updateParticles(dt);

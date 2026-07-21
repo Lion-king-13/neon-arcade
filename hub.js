@@ -22,19 +22,19 @@ export class Hub {
     m.renderOrder=998; return m;
   }
 
-  _addOrb(item, yaw){
-    const T=THREE, r=0.9;
+  _addOrb(item, yaw, y){
+    const T=THREE, r=0.92;
     const x=Math.sin(yaw)*r, z=-Math.cos(yaw)*r;
     const col = item.locked ? '#5b6472' : item.color;
-    const orb=new T.Mesh(new T.SphereGeometry(0.06,24,18),
+    const orb=new T.Mesh(new T.SphereGeometry(0.055,24,18),
       new T.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:item.locked?0.25:0.7, roughness:.3}));
-    const ring=new T.Mesh(new T.TorusGeometry(0.1,0.006,10,32),
+    const ring=new T.Mesh(new T.TorusGeometry(0.09,0.006,10,32),
       new T.MeshBasicMaterial({color:col, transparent:true, opacity:item.locked?0.35:0.75}));
-    const halo=new T.Mesh(new T.SphereGeometry(0.085,18,14),
+    const halo=new T.Mesh(new T.SphereGeometry(0.078,18,14),
       new T.MeshBasicMaterial({color:col, transparent:true, opacity:item.locked?0.05:0.12}));
     const g=new T.Group(); g.add(orb); g.add(ring); g.add(halo);
-    const base=new T.Vector3(x,1.34,z); g.position.copy(base);
-    const lbl=this._label((item.locked?'🔒 ':'')+item.label, col); lbl.position.set(x,1.16,z);
+    const base=new T.Vector3(x,y,z); g.position.copy(base);
+    const lbl=this._label((item.locked?'🔒 ':'')+item.label, col); lbl.position.set(x,y-0.135,z);
     this.group.add(g); this.group.add(lbl);
     this.orbs.push({g, orb, ring, lbl, base, action:item.action, locked:!!item.locked, cd:0.7, ph:Math.random()*6, hex:new T.Color(col).getHex()});
   }
@@ -57,8 +57,16 @@ export class Hub {
     }));
     items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
     const n=items.length;
-    const step=Math.min(0.42, 1.9/n);           // écartement angulaire (rad)
-    items.forEach((it,i)=> this._addOrb(it, (i-(n-1)/2)*step));
+    const rows = n>6 ? 2 : 1;
+    const perRow = Math.ceil(n/rows);
+    items.forEach((it,idx)=>{
+      const row=Math.floor(idx/perRow), col=idx%perRow;
+      const inRow=Math.min(perRow, n-row*perRow);
+      const step=Math.min(0.34, 1.7/Math.max(1,inRow));
+      const yaw=(col-(inRow-1)/2)*step;
+      const y=(rows===1?1.34:1.48)-row*0.34;
+      this._addOrb(it, yaw, y);
+    });
     this.group.visible=true;
   }
 
