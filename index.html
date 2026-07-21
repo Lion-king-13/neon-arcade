@@ -108,7 +108,7 @@ const T = {
     easy:"Tranquille", normal:"Normal", hard:"Intense",
     enter:"Entrer en immersion", enterAR:"Entrer en réalité mixte", noVR:"Casque VR requis",
     needHeadset:"Ouvre cette page dans le navigateur du Meta Quest 3, puis appuie sur le bouton.",
-    arNote:"Passthrough : les terriers sortent de tes vrais murs, sol et plafond (nécessite une pièce scannée sur le Quest).",
+    arNote:"Passthrough : les chenilles sortent de tes vrais murs, sol et plafond (nécessite une pièce scannée sur le Quest).",
     best:"Meilleur score", none:"—",
     how:"<b>Vise et écrase</b> les chenilles vertes. <b>Dorée</b> = bonus. <b>Scarabée rouge</b> = à éviter. Enchaîne sans rater pour le combo.",
     err:"Session impossible : ",
@@ -127,7 +127,7 @@ const T = {
     easy:"Chill", normal:"Normal", hard:"Intense",
     enter:"Enter immersive", enterAR:"Enter mixed reality", noVR:"VR headset required",
     needHeadset:"Open this page in the Meta Quest 3 browser, then press the button.",
-    arNote:"Passthrough: burrows pop from your real walls, floor and ceiling (needs a scanned room on the Quest).",
+    arNote:"Passthrough: grubs pop from your real walls, floor and ceiling (needs a scanned room on the Quest).",
     best:"Best score", none:"—",
     how:"<b>Aim and smash</b> the green grubs. <b>Golden</b> = bonus. <b>Red beetle</b> = avoid. Keep hitting for the combo.",
     err:"Cannot start session: ",
@@ -162,14 +162,12 @@ function wireSeg(id, key, cast, cb){
     };
   });
 }
-
 function updateEnterBtn(){
   const ok = settings.mode==='ar' ? arReady : vrReady;
   btn.disabled = !ok;
   btn.textContent = ok ? (settings.mode==='ar' ? t('enterAR') : t('enter')) : t('noVR');
   statusEl.textContent = settings.mode==='ar' ? t('arNote') : (ok? '' : t('needHeadset'));
 }
-
 wireSeg('mode','mode',null,updateEnterBtn);
 wireSeg('diff','diff');
 wireSeg('dur','dur',v=>parseInt(v,10));
@@ -236,7 +234,6 @@ function setEnvironment(mode){
 
 /* ------------------------------------------------------------ Contrôleurs + maillets */
 const malletHeads = [];
-const prevPos = [new THREE.Vector3(), new THREE.Vector3()];
 const MALLET_COL = [0x2ee6d6, 0xff4d5e];
 function makeMallet(color){
   const g = new THREE.Group();
@@ -267,30 +264,33 @@ const FIELD = new THREE.Group(); scene.add(FIELD);
 const CENTER = new THREE.Vector3(0, 1.28, 0.15);
 const REACH = 0.72;
 const EMERGE = 0.19;
-const HIT_R = 0.15;
+const HIT_R = 0.14;
 const ZAXIS = new THREE.Vector3(0,0,1);
 const YAXIS = new THREE.Vector3(0,1,0);
 
 const burrows = [];
-const ringMat = new THREE.MeshStandardMaterial({color:0x2a2140, emissive:0x8b6cff, emissiveIntensity:.6, roughness:.5});
-const discMat = new THREE.MeshBasicMaterial({color:0x05070c});
+const ringMat = new THREE.MeshStandardMaterial({color:0x2a2140, emissive:0x8b6cff, emissiveIntensity:.5, roughness:.5});
+const discMat = new THREE.MeshBasicMaterial({color:0x04060b});
+const tubeMat = new THREE.MeshBasicMaterial({color:0x04060b, side:THREE.DoubleSide});
 const ringGeo = new THREE.TorusGeometry(0.1, 0.02, 12, 28);
-const discGeo = new THREE.CircleGeometry(0.1, 24);
+const discGeo = new THREE.CircleGeometry(0.098, 24);
+const tubeGeo = new THREE.CylinderGeometry(0.096, 0.096, 0.22, 18, 1, true);
 
 function addBurrow(pos, normal, emerge){
+  const q = new THREE.Quaternion().setFromUnitVectors(ZAXIS, normal);
   const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.position.copy(pos);
-  ring.quaternion.setFromUnitVectors(ZAXIS, normal);
-  FIELD.add(ring);
+  ring.position.copy(pos); ring.quaternion.copy(q); FIELD.add(ring);
   const disc = new THREE.Mesh(discGeo, discMat);
-  disc.position.copy(pos).add(normal.clone().multiplyScalar(-0.006));
-  disc.quaternion.copy(ring.quaternion);
-  FIELD.add(disc);
-  burrows.push({pos:pos.clone(), normal:normal.clone(), emerge, ring, disc, occupied:null});
+  disc.position.copy(pos).add(normal.clone().multiplyScalar(-0.02));
+  disc.quaternion.copy(q); FIELD.add(disc);
+  const tube = new THREE.Mesh(tubeGeo, tubeMat);
+  tube.quaternion.setFromUnitVectors(YAXIS, normal);
+  tube.position.copy(pos).add(normal.clone().multiplyScalar(-0.11)); FIELD.add(tube);
+  burrows.push({pos:pos.clone(), normal:normal.clone(), emerge, ring, disc, tube, occupied:null});
 }
 function clearBurrows(){
   active.slice().forEach(o=>popCreature(o,false));
-  burrows.forEach(b=>{ FIELD.remove(b.ring); if(b.disc) FIELD.remove(b.disc); });
+  burrows.forEach(b=>{ FIELD.remove(b.ring); if(b.disc) FIELD.remove(b.disc); if(b.tube) FIELD.remove(b.tube); });
   burrows.length = 0;
 }
 function buildArcBurrows(){
@@ -304,15 +304,11 @@ function buildArcBurrows(){
         Math.sin(pit),
         -Math.cos(yaw)*Math.cos(pit)
       ).normalize();
-      const pos = CENTER.clone().add(dir.clone().multiplyScalar(REACH));
-      addBurrow(pos, dir, EMERGE);
+      addBurrow(CENTER.clone().add(dir.clone().multiplyScalar(REACH)), dir, EMERGE);
     }
   }
 }
-function buildPlaneBurrows(spots){
-  clearBurrows();
-  spots.forEach(s=> addBurrow(s.pos, s.normal, s.emerge));
-}
+function buildPlaneBurrows(spots){ clearBurrows(); spots.forEach(s=> addBurrow(s.pos, s.normal, s.emerge)); }
 
 /* détection de surfaces réelles (passthrough) */
 function pointInPoly(x,z,poly){
@@ -371,65 +367,132 @@ function sampleSpots(frame){
   return out.slice(0,16);
 }
 
-/* ------------------------------------------------------------ Créatures */
-const grubGeo = new THREE.SphereGeometry(0.05, 16, 12);
-function makeCreature(type){
+/* ------------------------------------------------------------ Créatures (modèles) */
+const M = {
+  gLight: new THREE.MeshStandardMaterial({color:0xd6f56e, emissive:0x86c72f, emissiveIntensity:.45, roughness:.5}),
+  gDark:  new THREE.MeshStandardMaterial({color:0xa6dd42, emissive:0x5fa11e, emissiveIntensity:.4, roughness:.55}),
+  gold:   new THREE.MeshStandardMaterial({color:0xffd54a, emissive:0xe0a915, emissiveIntensity:.7, roughness:.35, metalness:.3}),
+  eye:    new THREE.MeshBasicMaterial({color:0xf7f9ff}),
+  pupil:  new THREE.MeshBasicMaterial({color:0x0b0e14}),
+  ant:    new THREE.MeshStandardMaterial({color:0x2f4d16, emissive:0x18280b, roughness:.6}),
+  antTip: new THREE.MeshStandardMaterial({color:0xff5a8a, emissive:0xff5a8a, emissiveIntensity:.85}),
+  shell:  new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0xb0202d, emissiveIntensity:.5, roughness:.4, metalness:.2}),
+  spot:   new THREE.MeshStandardMaterial({color:0x2a0a0e, roughness:.6}),
+  spike:  new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0x6a3a00, roughness:.5}),
+  leg:    new THREE.MeshStandardMaterial({color:0x161018, roughness:.7})
+};
+const sphereGeo = new THREE.SphereGeometry(1, 14, 12);
+const eyeGeo = new THREE.SphereGeometry(0.016, 10, 8);
+const pupGeo = new THREE.SphereGeometry(0.008, 8, 6);
+const antGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.06, 6);
+const antTipGeo = new THREE.SphereGeometry(0.011, 8, 6);
+const legGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.06, 6);
+
+function makeGrub(gold){
   const g = new THREE.Group();
-  const colors = {
-    normal:{body:0xb8f34d, emis:0x6fae1e},
-    gold:{body:0xffd54a, emis:0xd8a012},
-    bad:{body:0xff4d5e, emis:0xb01f2c}
-  }[type];
-  const mat = new THREE.MeshStandardMaterial({color:colors.body, emissive:colors.emis, emissiveIntensity:.5, roughness:.4});
-  const segs = [];
-  const n = type==='bad'?4:5;
-  for(let i=0;i<n;i++){
-    const s = new THREE.Mesh(grubGeo, mat);
-    s.scale.setScalar(1 - i*0.11);
-    s.position.set(0, i*0.05, 0);
-    g.add(s); segs.push(s);
+  const L=0.24, A=0.13, N=8, R=0.055;
+  const wigParts=[]; let mid=null, base=null;
+  for(let i=0;i<N-1;i++){
+    const s=i/(N-1);
+    const prof=0.62+0.5*Math.sin(Math.PI*Math.min(1,s*0.9+0.14));
+    const r=R*prof;
+    const seg=new THREE.Mesh(sphereGeo, gold?M.gold:(i%2?M.gDark:M.gLight));
+    const yy=L*s, zz=A*s*s;
+    seg.position.set(0,yy,zz); seg.scale.setScalar(r);
+    seg.userData={s,x0:0,y0:yy,z0:zz};
+    g.add(seg); wigParts.push(seg);
+    if(i===0) base=seg;
+    if(i===Math.floor((N-1)/2)) mid=seg;
   }
-  const head = segs[n-1];
-  const eyeMat = new THREE.MeshBasicMaterial({color:0x0b0e14});
-  const eyeGeo = new THREE.SphereGeometry(0.012, 8, 8);
-  const e1 = new THREE.Mesh(eyeGeo, eyeMat), e2 = new THREE.Mesh(eyeGeo, eyeMat);
-  e1.position.set(-0.02,0.02,0.045); e2.position.set(0.02,0.02,0.045);
-  head.add(e1); head.add(e2);
-  if(type==='bad'){
-    const spikeMat = new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0x552200, roughness:.5});
-    for(let i=0;i<n;i++){
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.016,0.04,6), spikeMat);
-      sp.position.set(0, i*0.05+0.045, 0); g.add(sp);
-    }
+  // tête (headRig : accessoires non affectés par l'échelle de la sphère-tête)
+  const hr=new THREE.Group();
+  const hy=L, hz=A, hR=R*1.15;
+  hr.position.set(0,hy,hz);
+  hr.userData={s:1,x0:0,y0:hy,z0:hz};
+  const hsphere=new THREE.Mesh(sphereGeo, gold?M.gold:M.gLight);
+  hsphere.scale.setScalar(hR); hr.add(hsphere);
+  [-1,1].forEach(sx=>{
+    const e=new THREE.Mesh(eyeGeo, M.eye);
+    e.position.set(sx*hR*0.5, hR*0.28, hR*0.86);
+    const p=new THREE.Mesh(pupGeo, M.pupil); p.position.set(0,0,0.012); e.add(p);
+    hr.add(e);
+    const ant=new THREE.Mesh(antGeo, M.ant);
+    ant.position.set(sx*hR*0.35, hR*0.95, hR*0.4);
+    ant.rotation.set(-0.5, 0, sx*0.45);
+    const tip=new THREE.Mesh(antTipGeo, M.antTip); tip.position.set(0,0.035,0); ant.add(tip);
+    hr.add(ant);
+  });
+  g.add(hr); wigParts.push(hr);
+  // pattes
+  for(let i=1;i<N-1;i+=2){
+    const s=i/(N-1), yy=L*s, zz=A*s*s;
+    [-1,1].forEach(sx=>{
+      const leg=new THREE.Mesh(sphereGeo, M.leg);
+      leg.scale.setScalar(R*0.28);
+      leg.position.set(sx*R*0.95, yy-R*0.35, zz);
+      g.add(leg);
+    });
   }
-  g.userData = {type, segs};
-  return g;
+  return {group:g, L, hitParts:[hr, mid||base, base], wigParts};
 }
 
+function makeBeetle(){
+  const g=new THREE.Group(); const L=0.12;
+  const shell=new THREE.Mesh(sphereGeo, M.shell);
+  shell.scale.set(0.085,0.055,0.1); shell.position.set(0,L,0.0); g.add(shell);
+  const line=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.002,0.16), M.spot);
+  line.position.set(0,L+0.052,0); g.add(line);
+  [[-0.045,0.03],[0.045,0.03],[-0.04,-0.03],[0.04,-0.03]].forEach(([x,z])=>{
+    const sp=new THREE.Mesh(sphereGeo, M.spot); sp.scale.set(0.016,0.006,0.016);
+    sp.position.set(x, L+0.05, z); g.add(sp);
+  });
+  const head=new THREE.Mesh(sphereGeo, M.shell); head.scale.setScalar(0.04); head.position.set(0,L,0.1); g.add(head);
+  [-1,1].forEach(sx=>{
+    const e=new THREE.Mesh(eyeGeo, M.eye); e.position.set(sx*0.022, L+0.012, 0.125);
+    const p=new THREE.Mesh(pupGeo, M.pupil); p.position.set(0,0,0.012); e.add(p); g.add(e);
+    const sp=new THREE.Mesh(new THREE.ConeGeometry(0.014,0.05,7), M.spike);
+    sp.position.set(sx*0.03, L+0.07, 0.02); sp.rotation.z=sx*0.3; g.add(sp);
+  });
+  for(let k=0;k<3;k++){ const zz=-0.045+k*0.045;
+    [-1,1].forEach(sx=>{
+      const leg=new THREE.Mesh(legGeo, M.leg);
+      leg.position.set(sx*0.07, L-0.035, zz); leg.rotation.z=sx*0.95; g.add(leg);
+    });
+  }
+  return {group:g, L, hitParts:[shell, head], wigParts:[]};
+}
+
+/* ------------------------------------------------------------ Créatures (logique) */
 const active = [];
 function spawn(){
   const free = burrows.filter(b=>!b.occupied);
   if(!free.length) return;
   const b = free[(Math.random()*free.length)|0];
-  let type = 'normal';
-  const r = Math.random();
-  const badChance = {easy:0.10, normal:0.16, hard:0.24}[settings.diff];
-  if(r < badChance) type='bad';
-  else if(r < badChance+0.09) type='gold';
+  let type='normal'; const r=Math.random();
+  const badChance={easy:0.10,normal:0.16,hard:0.24}[settings.diff];
+  if(r<badChance) type='bad'; else if(r<badChance+0.09) type='gold';
 
-  const c = makeCreature(type);
+  const built = (type==='bad') ? makeBeetle() : makeGrub(type==='gold');
+  const c = built.group;
+  const up=b.normal.clone();
+  let fwd=new THREE.Vector3(0,1.25,0).sub(b.pos);
+  fwd.addScaledVector(up, -fwd.dot(up));
+  if(fwd.lengthSq()<1e-5){ fwd.set(0,0,1).addScaledVector(up,-up.z); if(fwd.lengthSq()<1e-5) fwd.set(1,0,0); }
+  fwd.normalize();
+  const right=new THREE.Vector3().crossVectors(up,fwd).normalize();
+  fwd.crossVectors(right,up).normalize();
+  c.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,up,fwd));
   c.position.copy(b.pos);
-  c.quaternion.setFromUnitVectors(YAXIS, b.normal);
   FIELD.add(c);
 
-  const up = {easy:[1.1,1.7], normal:[0.85,1.35], hard:[0.6,1.0]}[settings.diff];
-  const life = up[0] + Math.random()*(up[1]-up[0]);
-  const obj = {group:c, burrow:b, type, phase:'rise', tt:0, riseT:0.18, holdT:life, sinkT:0.18, hit:false, wig:Math.random()*6};
-  b.occupied = obj;
-  active.push(obj);
+  const upd={easy:[1.1,1.7],normal:[0.85,1.35],hard:[0.6,1.0]}[settings.diff];
+  const life=upd[0]+Math.random()*(upd[1]-upd[0]);
+  const obj={group:c, burrow:b, type, phase:'rise', tt:0, riseT:0.24, holdT:life, sinkT:0.22,
+             hit:false, wig:Math.random()*6, L:built.L, hitParts:built.hitParts, wigParts:built.wigParts, gold:type==='gold'};
+  b.occupied=obj; active.push(obj);
 }
 function popCreature(obj, smashed){
-  if(smashed) burst(obj.group.position, obj.type==='bad'?0xff4d5e:(obj.type==='gold'?0xffd54a:0xb8f34d));
+  if(smashed){ obj.hitParts[0].getWorldPosition(tmp2); burst(tmp2, obj.type==='bad'?0xff4d5e:(obj.type==='gold'?0xffd54a:0xb8f34d)); }
   FIELD.remove(obj.group);
   obj.burrow.occupied = null;
   const i = active.indexOf(obj); if(i>=0) active.splice(i,1);
@@ -440,10 +503,10 @@ const partGeo = new THREE.SphereGeometry(0.014, 6, 6);
 const particles = [];
 function burst(pos, color){
   const mat = new THREE.MeshBasicMaterial({color});
-  for(let i=0;i<10;i++){
+  for(let i=0;i<12;i++){
     const p = new THREE.Mesh(partGeo, mat);
     p.position.copy(pos);
-    const v = new THREE.Vector3((Math.random()-.5),(Math.random()*.8+.2),(Math.random()-.5)).multiplyScalar(1.4);
+    const v = new THREE.Vector3((Math.random()-.5),(Math.random()*.8+.2),(Math.random()-.5)).multiplyScalar(1.5);
     scene.add(p); particles.push({mesh:p, v, life:0.5});
   }
 }
@@ -508,26 +571,22 @@ function drawCenter(lines){
 }
 
 const buttons = [];
-function makeButton(label, color, onTrigger){
-  const p = makePanel(0.34, 0.14, 360);
-  const c = p.ctx, W=p.canvas.width, H=p.canvas.height;
+function paintButton(p, color, label){
+  const c=p.ctx, W=p.canvas.width, H=p.canvas.height;
+  c.clearRect(0,0,W,H);
   c.fillStyle='rgba(19,24,38,.95)'; rr(c,0,0,W,H,40); c.fill();
   c.lineWidth=5; c.strokeStyle=color; rr(c,3,3,W-6,H-6,36); c.stroke();
   c.fillStyle=color; c.textAlign='center'; c.font='900 60px Segoe UI, sans-serif';
-  c.fillText(label, W/2, H/2+21);
-  p.tex.needsUpdate=true;
+  c.fillText(label, W/2, H/2+21); p.tex.needsUpdate=true;
+}
+function makeButton(label, color, onTrigger){
+  const p = makePanel(0.34, 0.14, 360);
+  paintButton(p, color, label);
   scene.add(p.mesh); p.mesh.visible=false;
-  const b = {mesh:p.mesh, onTrigger, cd:0, label, color, panel:p};
+  const b = {mesh:p.mesh, onTrigger, cd:0, color, panel:p};
   buttons.push(b); return b;
 }
-function relabel(b, label){
-  const c=b.panel.ctx, W=b.panel.canvas.width, H=b.panel.canvas.height;
-  c.clearRect(0,0,W,H);
-  c.fillStyle='rgba(19,24,38,.95)'; rr(c,0,0,W,H,40); c.fill();
-  c.lineWidth=5; c.strokeStyle=b.color; rr(c,3,3,W-6,H-6,36); c.stroke();
-  c.fillStyle=b.color; c.textAlign='center'; c.font='900 60px Segoe UI, sans-serif';
-  c.fillText(label, W/2, H/2+21); b.panel.tex.needsUpdate=true;
-}
+function relabel(b, label){ paintButton(b.panel, b.color, label); }
 let btnStart=null, btnAgain=null, btnMenu=null;
 
 /* ------------------------------------------------------------ Audio */
@@ -563,6 +622,7 @@ let state='idle'; // idle | scan | count | play | over
 let score=0, combo=0, best=0, timeLeft=0, hits=0, misses=0, spawnTimer=0, countT=0, countN=3;
 let scanT=0, scanBest=[];
 const tmp = new THREE.Vector3();
+const tmp2 = new THREE.Vector3();
 
 function resetGame(){
   active.slice().forEach(o=>popCreature(o,false));
@@ -647,7 +707,9 @@ function checkHits(){
     if(state!=='play') continue;
     for(const o of active){
       if(o.hit || o.phase==='sink') continue;
-      if(tmp.distanceTo(o.group.position) < HIT_R) registerHit(o);
+      let hitIt=false;
+      for(const part of o.hitParts){ part.getWorldPosition(tmp2); if(tmp.distanceTo(tmp2) < HIT_R){ hitIt=true; break; } }
+      if(hitIt) registerHit(o);
     }
   }
 }
@@ -655,7 +717,8 @@ function registerHit(o){
   o.hit=true;
   if(o.type==='bad'){
     combo=0; score=Math.max(0,score-3); misses++;
-    sfx.bad(); o.phase='sink'; o.tt=0; burst(o.group.position, 0xff4d5e); return;
+    sfx.bad(); o.phase='sink'; o.tt=0;
+    o.hitParts[0].getWorldPosition(tmp2); burst(tmp2, 0xff4d5e); return;
   }
   hits++; combo++;
   const mult = 1 + Math.floor(combo/5);
@@ -672,10 +735,14 @@ function updateCreatures(dt){
     if(o.phase==='rise'){ rise=Math.min(1,o.tt/o.riseT); if(rise>=1){ o.phase='hold'; o.tt=0; } }
     else if(o.phase==='hold'){ rise=1; if(o.tt>=o.holdT){ o.phase='sink'; o.tt=0; if(!o.hit && o.type!=='bad'){ combo=0; misses++; sfx.miss(); } } }
     else { rise=Math.max(0,1-o.tt/o.sinkT); if(o.tt>=o.sinkT){ popCreature(o,false); continue; } }
-    o.group.position.copy(b.pos).add(b.normal.clone().multiplyScalar(b.emerge*rise));
-    const segs = o.group.userData.segs;
-    for(let i=0;i<segs.length;i++) segs[i].position.y = i*0.05 + Math.sin(time*7 + o.wig + i*0.7)*0.006*rise;
-    o.group.scale.setScalar(0.4 + 0.6*rise);
+    const e = rise*rise*(3-2*rise);
+    o.group.position.copy(b.pos).add(b.normal.clone().multiplyScalar(THREE.MathUtils.lerp(-(o.L+0.08), 0.02, e)));
+    for(const p of o.wigParts){
+      const s=p.userData.s;
+      p.position.x = p.userData.x0 + 0.014*Math.sin(s*6 - time*6.5 + o.wig)*e;
+      p.position.y = p.userData.y0 + 0.006*Math.cos(s*6 - time*6.5 + o.wig)*e;
+    }
+    if(o.gold) o.group.scale.setScalar(1 + 0.05*Math.sin(time*9 + o.wig));
   }
 }
 function render(frame){
