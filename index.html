@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON GRUB — Tape-Chenille VR</title>
+<style>
+  :root{
+    --ink:#0b0e14; --panel:#131826; --steel:#8b93a7;
+    --coral:#ff4d5e; --cyan:#2ee6d6; --lime:#b8f34d; --gold:#ffd54a;
+    --violet:#8b6cff; --white:#f4f6fb;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--ink);color:var(--white);font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+  canvas{display:block;position:fixed;inset:0}
+  #overlay{
+    position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 120%, #16203a 0%, rgba(11,14,20,.92) 62%);
+    z-index:10;text-align:center;padding:24px;transition:opacity .5s;
+  }
+  #overlay.hidden{opacity:0;pointer-events:none}
+  .kicker{color:var(--lime);letter-spacing:.34em;text-transform:uppercase;font-size:.78rem;font-weight:800;margin-bottom:10px}
+  h1{
+    font-size:clamp(2.6rem,8vw,5rem);font-weight:900;letter-spacing:.04em;line-height:.92;
+    background:linear-gradient(92deg,var(--lime) 0%,var(--cyan) 55%,var(--violet) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;text-transform:uppercase;
+  }
+  .tag{color:var(--steel);margin:14px 0 26px;font-size:1rem;letter-spacing:.1em;text-transform:uppercase;max-width:30ch}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid #232a3d;border-radius:999px;padding:4px;gap:2px}
+  .seg button{
+    font:inherit;font-weight:700;font-size:.86rem;color:var(--steel);background:transparent;border:none;
+    padding:9px 16px;border-radius:999px;cursor:pointer;letter-spacing:.03em;transition:.18s;
+  }
+  .seg button.on{background:var(--cyan);color:var(--ink)}
+  .seg button:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+  .lbl{display:block;color:var(--steel);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;margin:0 0 6px}
+  #vrbtn{
+    font:inherit;font-weight:800;font-size:1.12rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink);background:var(--lime);border:none;border-radius:999px;
+    padding:18px 44px;cursor:pointer;margin-top:8px;box-shadow:0 0 34px rgba(184,243,77,.4);transition:.2s;
+  }
+  #vrbtn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 0 46px rgba(184,243,77,.6)}
+  #vrbtn:disabled{background:#2a3145;color:var(--steel);box-shadow:none;cursor:default}
+  #vrbtn:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
+  .best{margin-top:18px;color:var(--gold);font-weight:800;letter-spacing:.08em}
+  .best span{color:var(--steel);font-weight:600}
+  #status{margin-top:16px;color:var(--steel);font-size:.82rem;min-height:1.2em;max-width:40ch}
+  .how{margin-top:20px;color:var(--steel);font-size:.8rem;line-height:1.7;max-width:34ch}
+  .how b{color:var(--white)}
+  .dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;vertical-align:middle;margin-right:.35em}
+  #lang{position:fixed;top:16px;right:18px;z-index:11;color:var(--steel);font-size:.82rem;font-weight:700}
+  #lang a{color:var(--steel);cursor:pointer;padding:0 4px}
+  #lang a.on{color:var(--cyan)}
+</style>
+</head>
+<body>
+<div id="lang"></div>
+<div id="overlay">
+  <div class="kicker" id="kicker">Arcade · Meta Quest 3</div>
+  <h1>NEON GRUB</h1>
+  <p class="tag" id="tag"></p>
+
+  <div class="row">
+    <div>
+      <span class="lbl" id="lblDiff"></span>
+      <div class="seg" id="diff">
+        <button data-v="easy"></button>
+        <button data-v="normal" class="on"></button>
+        <button data-v="hard"></button>
+      </div>
+    </div>
+    <div>
+      <span class="lbl" id="lblTime"></span>
+      <div class="seg" id="dur">
+        <button data-v="60" class="on">60s</button>
+        <button data-v="90">90s</button>
+        <button data-v="120">120s</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="vrbtn" disabled></button>
+  <div class="best" id="best"></div>
+  <div class="how" id="how"></div>
+  <div id="status"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* ---------------------------------------------------------------- i18n */
+const T = {
+  fr:{
+    tag:"Écrase les chenilles qui sortent des terriers. Vise vite, esquive les scarabées.",
+    diff:"Difficulté", time:"Durée",
+    easy:"Tranquille", normal:"Normal", hard:"Intense",
+    enter:"Entrer en VR", noVR:"Casque VR requis",
+    checking:"Recherche du casque…",
+    needHeadset:"Ouvre cette page dans le navigateur du Meta Quest 3, puis appuie sur « Entrer en VR ».",
+    best:"Meilleur score", none:"—",
+    how:"<b>Vise et écrase</b> les chenilles vertes. <b class='g'>Dorée</b> = bonus. <b class='r'>Scarabée rouge</b> = à éviter. Enchaîne sans rater pour monter ton combo.",
+    err:"Session VR impossible : ",
+    start:"TAPE POUR\nDÉMARRER",
+    go:"GO", timeUp:"TEMPS !",
+    score:"SCORE", combo:"COMBO", time2:"TEMPS",
+    again:"REJOUER", menu:"MENU",
+    result:"TERMINÉ", newbest:"NOUVEAU RECORD !",
+    hitsL:"Touchées", missL:"Ratées", bestL:"Précision"
+  },
+  en:{
+    tag:"Smash the grubs popping out of the burrows. Aim fast, dodge the beetles.",
+    diff:"Difficulty", time:"Duration",
+    easy:"Chill", normal:"Normal", hard:"Intense",
+    enter:"Enter VR", noVR:"VR headset required",
+    checking:"Looking for headset…",
+    needHeadset:"Open this page in the Meta Quest 3 browser, then press “Enter VR”.",
+    best:"Best score", none:"—",
+    how:"<b>Aim and smash</b> the green grubs. <b class='g'>Golden</b> = bonus. <b class='r'>Red beetle</b> = avoid. Keep hitting to build your combo.",
+    err:"Cannot start VR: ",
+    start:"TAP TO\nSTART",
+    go:"GO", timeUp:"TIME!",
+    score:"SCORE", combo:"COMBO", time2:"TIME",
+    again:"PLAY AGAIN", menu:"MENU",
+    result:"FINISHED", newbest:"NEW RECORD!",
+    hitsL:"Hits", missL:"Misses", bestL:"Accuracy"
+  }
+};
+let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr'; // défaut FR
+function t(k){ return T[lang][k]; }
+
+/* ---------------------------------------------------------------- DOM */
+const overlay = document.getElementById('overlay');
+const btn = document.getElementById('vrbtn');
+const statusEl = document.getElementById('status');
+const bestEl = document.getElementById('best');
+
+const settings = { diff:'normal', dur:60 };
+function wireSeg(id, key, cast){
+  const box = document.getElementById(id);
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      box.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      settings[key] = cast ? cast(b.dataset.v) : b.dataset.v;
+    };
+  });
+}
+wireSeg('diff','diff');
+wireSeg('dur','dur',v=>parseInt(v,10));
+
+function bestKey(){ return 'neongrub_best_'+settings.diff+'_'+settings.dur; }
+function getBest(){ return parseInt(localStorage.getItem(bestKey())||'0',10); }
+function setBest(v){ try{ localStorage.setItem(bestKey(), String(v)); }catch(e){} }
+
+function renderOverlay(){
+  document.documentElement.lang = lang;
+  document.getElementById('kicker').textContent = 'Arcade · Meta Quest 3';
+  document.getElementById('tag').textContent = t('tag');
+  document.getElementById('lblDiff').textContent = t('diff');
+  document.getElementById('lblTime').textContent = t('time');
+  const d = document.getElementById('diff').children;
+  d[0].textContent=t('easy'); d[1].textContent=t('normal'); d[2].textContent=t('hard');
+  btn.textContent = vrReady ? t('enter') : t('noVR');
+  const b = getBest();
+  bestEl.innerHTML = '<span>'+t('best')+' : </span>' + (b>0? b : t('none'));
+  document.getElementById('how').innerHTML =
+    t('how').replace("class='g'","style='color:var(--gold)'").replace("class='r'","style='color:var(--coral)'");
+  if(!vrReady && statusEl.textContent==='') statusEl.textContent = t('needHeadset');
+  // sélecteur de langue
+  const lp = document.getElementById('lang');
+  lp.innerHTML = '<a data-l="fr" class="'+(lang==='fr'?'on':'')+'">FR</a>·<a data-l="en" class="'+(lang==='en'?'on':'')+'">EN</a>';
+  lp.querySelectorAll('a').forEach(a=>a.onclick=()=>{ lang=a.dataset.l; renderOverlay(); });
+}
+
+/* ---------------------------------------------------------------- THREE base */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070910);
+scene.fog = new THREE.FogExp2(0x070910, 0.14);
+
+const camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.05, 100);
+camera.position.set(0, 1.55, 1.1);
+
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+renderer.shadowMap.enabled = false;
+document.body.appendChild(renderer.domElement);
+
+// Lumières
+scene.add(new THREE.HemisphereLight(0x556699, 0x0a0d14, 1.0));
+const key = new THREE.DirectionalLight(0xffffff, 1.1);
+key.position.set(2,5,2); scene.add(key);
+const rim = new THREE.PointLight(0x8b6cff, 6, 12); rim.position.set(0,2.4,-1.2); scene.add(rim);
+
+// Sol néon
+const grid = new THREE.GridHelper(24, 48, 0x2ee6d6, 0x16324a);
+grid.material.transparent = true; grid.material.opacity = 0.35;
+scene.add(grid);
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(12, 48),
+  new THREE.MeshStandardMaterial({color:0x0a1018, roughness:1, metalness:0})
+);
+floor.rotation.x = -Math.PI/2; floor.position.y = -0.001; scene.add(floor);
+
+/* ---------------------------------------------------------------- Contrôleurs + maillets */
+const malletHeads = [];
+const prevPos = [new THREE.Vector3(), new THREE.Vector3()];
+const curVel = [0,0];
+const MALLET_COL = [0x2ee6d6, 0xff4d5e];
+function makeMallet(color){
+  const g = new THREE.Group();
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014,0.018,0.14,12),
+    new THREE.MeshStandardMaterial({color:0x1a2030, roughness:.6, metalness:.4})
+  );
+  handle.rotation.x = -Math.PI/2; handle.position.z = -0.02; g.add(handle);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 20, 16),
+    new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.9, roughness:.35})
+  );
+  head.position.z = -0.12; g.add(head);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.058,0.008,10,24),
+    new THREE.MeshBasicMaterial({color})
+  );
+  ring.position.z = -0.12; g.add(ring);
+  g.userData.head = head;
+  return g;
+}
+for(let i=0;i<2;i++){
+  const grip = renderer.xr.getControllerGrip(i);
+  const m = makeMallet(MALLET_COL[i]);
+  grip.add(m);
+  scene.add(grip);
+  malletHeads[i] = m.userData.head;
+}
+
+/* ---------------------------------------------------------------- Terriers + chenilles */
+const FIELD = new THREE.Group(); scene.add(FIELD);
+const CENTER = new THREE.Vector3(0, 1.28, 0.15);   // centre de la zone d'allonge
+const REACH = 0.72;                                 // rayon d'allonge
+const EMERGE = 0.19;                                 // distance de sortie de la chenille
+const HIT_R = 0.15;
+
+const burrows = [];
+function buildBurrows(){
+  // 4 colonnes (yaw) x 3 rangées (pitch) -> arc devant le joueur
+  const yaws = [-58,-20,20,58].map(d=>d*Math.PI/180);
+  const pitches = [-24, 6, 34].map(d=>d*Math.PI/180);
+  for(const pit of pitches){
+    for(const yaw of yaws){
+      const dir = new THREE.Vector3(
+        Math.sin(yaw)*Math.cos(pit),
+        Math.sin(pit),
+        -Math.cos(yaw)*Math.cos(pit)
+      ).normalize();
+      const pos = CENTER.clone().add(dir.clone().multiplyScalar(REACH));
+      const normal = dir.clone(); // ouverture vers le joueur
+
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.1, 0.02, 12, 28),
+        new THREE.MeshStandardMaterial({color:0x2a2140, emissive:0x8b6cff, emissiveIntensity:.55, roughness:.5})
+      );
+      ring.position.copy(pos);
+      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+      FIELD.add(ring);
+
+      const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(0.1, 24),
+        new THREE.MeshBasicMaterial({color:0x05070c})
+      );
+      disc.position.copy(pos).add(normal.clone().multiplyScalar(-0.005));
+      disc.quaternion.copy(ring.quaternion);
+      FIELD.add(disc);
+
+      burrows.push({pos, normal, ring, occupied:null});
+    }
+  }
+}
+buildBurrows();
+
+// Fabrique une chenille (ou scarabée) montée dans un terrier
+const grubGeo = new THREE.SphereGeometry(0.05, 16, 12);
+function makeCreature(type){
+  const g = new THREE.Group();
+  const colors = {
+    normal:{body:0xb8f34d, emis:0x6fae1e},
+    gold:{body:0xffd54a, emis:0xd8a012},
+    bad:{body:0xff4d5e, emis:0xb01f2c}
+  }[type];
+  const mat = new THREE.MeshStandardMaterial({color:colors.body, emissive:colors.emis, emissiveIntensity:.5, roughness:.4});
+  const segs = [];
+  const n = type==='bad'?4:5;
+  for(let i=0;i<n;i++){
+    const s = new THREE.Mesh(grubGeo, mat);
+    const sc = 1 - i*0.11;
+    s.scale.setScalar(sc);
+    s.position.set(0, i*0.05, 0);
+    g.add(s); segs.push(s);
+  }
+  // yeux sur le segment de tête (dernier)
+  const head = segs[n-1];
+  const eyeMat = new THREE.MeshBasicMaterial({color:0x0b0e14});
+  const eyeGeo = new THREE.SphereGeometry(0.012, 8, 8);
+  const e1 = new THREE.Mesh(eyeGeo, eyeMat), e2 = new THREE.Mesh(eyeGeo, eyeMat);
+  e1.position.set(-0.02,0.02,0.045); e2.position.set(0.02,0.02,0.045);
+  head.add(e1); head.add(e2);
+  if(type==='bad'){
+    const spikeMat = new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0x552200, roughness:.5});
+    for(let i=0;i<n;i++){
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.016,0.04,6), spikeMat);
+      sp.position.set(0, i*0.05+0.045, 0);
+      g.add(sp);
+    }
+  }
+  g.userData = {type, segs};
+  return g;
+}
+
+// pool de créatures actives
+const active = [];
+function spawn(){
+  const free = burrows.filter(b=>!b.occupied);
+  if(!free.length) return;
+  const b = free[(Math.random()*free.length)|0];
+  let type = 'normal';
+  const r = Math.random();
+  const badChance = {easy:0.10, normal:0.16, hard:0.24}[settings.diff];
+  const goldChance = 0.09;
+  if(r < badChance) type='bad';
+  else if(r < badChance+goldChance) type='gold';
+
+  const c = makeCreature(type);
+  c.position.copy(b.pos);
+  c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), b.normal); // pousse le long de la normale
+  FIELD.add(c);
+
+  const up = {easy:[1.1,1.7], normal:[0.85,1.35], hard:[0.6,1.0]}[settings.diff];
+  const life = up[0] + Math.random()*(up[1]-up[0]);
+  const obj = {group:c, burrow:b, type, phase:'rise', tt:0,
+    riseT:0.18, holdT:life, sinkT:0.18, hit:false, wig:Math.random()*6};
+  b.occupied = obj;
+  active.push(obj);
+}
+
+function popCreature(obj, smashed){
+  const b = obj.burrow;
+  if(smashed){
+    // particules
+    burst(obj.group.position, obj.type==='bad'?0xff4d5e:(obj.type==='gold'?0xffd54a:0xb8f34d));
+  }
+  FIELD.remove(obj.group);
+  b.occupied = null;
+  const i = active.indexOf(obj); if(i>=0) active.splice(i,1);
+}
+
+/* ---------------------------------------------------------------- Particules */
+const partGeo = new THREE.SphereGeometry(0.014, 6, 6);
+const particles = [];
+function burst(pos, color){
+  const mat = new THREE.MeshBasicMaterial({color});
+  for(let i=0;i<10;i++){
+    const p = new THREE.Mesh(partGeo, mat);
+    p.position.copy(pos);
+    const v = new THREE.Vector3((Math.random()-.5),(Math.random()*.8+.2),(Math.random()-.5)).multiplyScalar(1.4);
+    scene.add(p);
+    particles.push({mesh:p, v, life:0.5});
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const pt = particles[i];
+    pt.life -= dt;
+    pt.v.y -= 3*dt;
+    pt.mesh.position.addScaledVector(pt.v, dt);
+    pt.mesh.scale.multiplyScalar(1 - dt*2);
+    if(pt.life<=0){ scene.remove(pt.mesh); particles.splice(i,1); }
+  }
+}
+
+/* ---------------------------------------------------------------- Panneaux HUD & boutons 3D */
+function makePanel(w, h, px){
+  const canvas = document.createElement('canvas');
+  canvas.width = px; canvas.height = Math.round(px*h/w);
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(w,h),
+    new THREE.MeshBasicMaterial({map:tex, transparent:true})
+  );
+  return {mesh, ctx, canvas, tex, w, h};
+}
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// HUD flottant au-dessus du champ
+const hud = makePanel(0.9, 0.26, 900);
+hud.mesh.position.set(0, 2.02, -0.55);
+scene.add(hud.mesh);
+function drawHUD(score, combo, time){
+  const c = hud.ctx, W=hud.canvas.width, H=hud.canvas.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle='rgba(19,24,38,.86)'; rr(c,0,0,W,H,26); c.fill();
+  c.strokeStyle='rgba(46,230,214,.5)'; c.lineWidth=3; rr(c,2,2,W-4,H-4,24); c.stroke();
+  const cell=(label,val,x,col)=>{
+    c.textAlign='center';
+    c.fillStyle='#8b93a7'; c.font='700 26px Segoe UI, sans-serif';
+    c.fillText(label, x, 54);
+    c.fillStyle=col; c.font='900 74px Segoe UI, sans-serif';
+    c.fillText(val, x, 132);
+  };
+  cell(t('score'), String(score), W*0.2, '#f4f6fb');
+  cell(t('combo'), 'x'+combo, W*0.5, '#b8f34d');
+  cell(t('time2'), Math.max(0,Math.ceil(time))+'s', W*0.8, time<=5?'#ff4d5e':'#2ee6d6');
+  hud.tex.needsUpdate = true;
+}
+
+// Grand panneau central (start / résultat)
+const board = makePanel(0.9, 0.62, 900);
+board.mesh.position.set(0, 1.42, -0.9);
+scene.add(board.mesh);
+board.mesh.visible = false;
+
+function drawCenter(lines){
+  const c = board.ctx, W=board.canvas.width, H=board.canvas.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle='rgba(15,20,34,.9)'; rr(c,0,0,W,H,34); c.fill();
+  c.strokeStyle='rgba(139,108,255,.6)'; c.lineWidth=4; rr(c,3,3,W-6,H-6,30); c.stroke();
+  c.textAlign='center';
+  let y = 120;
+  for(const ln of lines){
+    c.fillStyle = ln.col||'#f4f6fb';
+    c.font = (ln.w||'900')+' '+(ln.s||70)+'px Segoe UI, sans-serif';
+    const parts = ln.text.split('\n');
+    for(const p of parts){ c.fillText(p, W/2, y); y += (ln.s||70)*1.02; }
+    y += ln.gap||14;
+  }
+  board.tex.needsUpdate = true;
+}
+
+// Boutons tactiles 3D
+const buttons = [];
+function makeButton(label, color, x, onTrigger){
+  const p = makePanel(0.34, 0.14, 360);
+  const c = p.ctx, W=p.canvas.width, H=p.canvas.height;
+  c.fillStyle = 'rgba(19,24,38,.95)'; rr(c,0,0,W,H,40); c.fill();
+  c.lineWidth=5; c.strokeStyle=color; rr(c,3,3,W-6,H-6,36); c.stroke();
+  c.fillStyle=color; c.textAlign='center'; c.font='900 62px Segoe UI, sans-serif';
+  c.fillText(label, W/2, H/2+22);
+  p.tex.needsUpdate=true;
+  p.mesh.position.set(x, 1.02, -0.85);
+  scene.add(p.mesh);
+  p.mesh.visible=false;
+  const b = {mesh:p.mesh, onTrigger, cd:0};
+  buttons.push(b);
+  return b;
+}
+let btnAgain=null, btnMenu=null, btnStart=null;
+
+/* ---------------------------------------------------------------- Audio (WebAudio) */
+let actx=null;
+function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+function beep(freq, dur, type, gain, slideTo){
+  try{
+    const a=audio(), o=a.createOscillator(), g=a.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, a.currentTime+dur);
+    g.gain.setValueAtTime(gain||0.15, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+dur);
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur);
+  }catch(e){}
+}
+const sfx = {
+  hit:()=>beep(420,0.12,'square',0.16,760),
+  gold:()=>{ beep(660,0.1,'triangle',0.18,990); setTimeout(()=>beep(990,0.12,'triangle',0.16,1320),70); },
+  bad:()=>beep(150,0.22,'sawtooth',0.2,60),
+  miss:()=>beep(200,0.12,'sine',0.08,140),
+  count:()=>beep(520,0.1,'sine',0.14),
+  go:()=>beep(880,0.25,'triangle',0.2,1200),
+  end:()=>{ beep(600,0.15,'triangle',0.16,400); setTimeout(()=>beep(400,0.3,'sine',0.16,200),150); }
+};
+
+/* ---------------------------------------------------------------- État de jeu */
+let state='idle'; // idle | count | play | over
+let score=0, combo=0, best=0, timeLeft=0, hits=0, misses=0, spawnTimer=0, countT=0, countN=3;
+
+function resetGame(){
+  active.slice().forEach(o=>popCreature(o,false));
+  particles.slice().forEach(p=>{ scene.remove(p.mesh); });
+  particles.length=0;
+  score=0; combo=0; hits=0; misses=0; timeLeft=settings.dur;
+}
+function showButtons(list){
+  buttons.forEach(b=>b.mesh.visible=false);
+  list.forEach(b=>{ if(b){ b.mesh.visible=true; b.cd=0.5; } });
+}
+function startCountdown(){
+  resetGame();
+  board.mesh.visible=true; showButtons([]);
+  state='count'; countT=0; countN=3;
+  drawCenter([{text:'3', s:220, col:'#2ee6d6'}]);
+  sfx.count();
+  speak(lang==='fr'?'Prêt':'Ready');
+}
+function startPlay(){
+  state='play'; board.mesh.visible=false; showButtons([]);
+  timeLeft=settings.dur; spawnTimer=0.6;
+  sfx.go(); speak(t('go'));
+}
+function endGame(){
+  state='over';
+  active.slice().forEach(o=>popCreature(o,false));
+  best = getBest();
+  const record = score>best;
+  if(record) setBest(score);
+  const acc = hits+misses>0 ? Math.round(hits*100/(hits+misses)) : 0;
+  drawCenter([
+    {text:t('result'), s:60, col:'#8b93a7', gap:6},
+    {text:String(score), s:150, col:'#b8f34d', gap:10},
+    record? {text:t('newbest'), s:44, col:'#ffd54a', gap:14}
+           : {text:t('best')+' '+Math.max(best,score), s:34, col:'#8b93a7', gap:14},
+    {text:t('hitsL')+' '+hits+'   ·   '+t('bestL')+' '+acc+'%', s:34, col:'#8b93a7'}
+  ]);
+  board.mesh.visible=true;
+  showButtons([btnAgain, btnMenu]);
+  sfx.end(); speak(t('timeUp'));
+}
+
+/* voix optionnelle */
+let voiceOK = 'speechSynthesis' in window;
+function speak(txt){
+  if(!voiceOK) return;
+  try{ const u=new SpeechSynthesisUtterance(txt); u.lang= lang==='fr'?'fr-FR':'en-US'; u.rate=1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
+}
+
+/* ---------------------------------------------------------------- Boucle */
+const clock = new THREE.Clock();
+const tmp = new THREE.Vector3();
+
+function difficultyRate(){
+  const base = {easy:1.15, normal:0.9, hard:0.62}[settings.diff];
+  const prog = 1 - (timeLeft/settings.dur)*0.45; // accélère avec le temps
+  return base * (1-0.35*prog+0.001);
+}
+
+function updateControllers(dt){
+  for(let i=0;i<2;i++){
+    const h = malletHeads[i];
+    if(!h) continue;
+    h.getWorldPosition(tmp);
+    curVel[i] = tmp.distanceTo(prevPos[i]) / Math.max(dt,0.001);
+    prevPos[i].copy(tmp);
+  }
+}
+
+function checkHits(){
+  for(let i=0;i<2;i++){
+    const h = malletHeads[i]; if(!h) continue;
+    h.getWorldPosition(tmp);
+    // boutons 3D
+    for(const b of buttons){
+      if(!b.mesh.visible || b.cd>0) continue;
+      if(tmp.distanceTo(b.mesh.position) < 0.13){ b.cd=0.6; b.onTrigger(); }
+    }
+    if(state==='count' && board.mesh.visible){
+      // le start est un bouton aussi
+    }
+    if(state!=='play') continue;
+    for(const o of active){
+      if(o.hit || o.phase==='sink') continue;
+      o.group.getWorldPosition(tmp2);
+      // point de tête ~ position + emerge courant le long de la normale (approx via group pos)
+      if(tmp.distanceTo(o.group.position) < HIT_R){
+        registerHit(o);
+      }
+    }
+  }
+}
+const tmp2 = new THREE.Vector3();
+
+function registerHit(o){
+  o.hit=true;
+  if(o.type==='bad'){
+    combo=0; score=Math.max(0,score-3); misses++;
+    sfx.bad(); o.phase='sink'; o.tt=0;
+    burst(o.group.position, 0xff4d5e);
+    return;
+  }
+  hits++; combo++;
+  const mult = 1 + Math.floor(combo/5);
+  const pts = (o.type==='gold'? 5 : 1) * mult;
+  score += pts;
+  if(o.type==='gold') sfx.gold(); else sfx.hit();
+  popCreature(o, true);
+}
+
+function updateCreatures(dt){
+  const time = clock.elapsedTime;
+  for(const o of active.slice()){
+    o.tt += dt;
+    const b = o.burrow;
+    let rise=0;
+    if(o.phase==='rise'){
+      rise = Math.min(1, o.tt/o.riseT);
+      if(rise>=1){ o.phase='hold'; o.tt=0; }
+    } else if(o.phase==='hold'){
+      rise = 1;
+      if(o.tt>=o.holdT){ o.phase='sink'; o.tt=0; if(!o.hit && o.type!=='bad'){ combo=0; misses++; sfx.miss(); } }
+    } else { // sink
+      rise = Math.max(0, 1 - o.tt/o.sinkT);
+      if(o.tt>=o.sinkT){ popCreature(o,false); continue; }
+    }
+    const out = EMERGE*rise;
+    o.group.position.copy(b.pos).add(b.normal.clone().multiplyScalar(out));
+    // ondulation des segments
+    const segs = o.group.userData.segs;
+    for(let i=0;i<segs.length;i++){
+      segs[i].position.y = i*0.05 + Math.sin(time*7 + o.wig + i*0.7)*0.006*rise;
+    }
+    o.group.scale.setScalar(0.4 + 0.6*rise);
+  }
+}
+
+function render(){
+  const dt = Math.min(clock.getDelta(), 0.05);
+  updateControllers(dt);
+  updateParticles(dt);
+
+  for(const b of buttons){ if(b.cd>0) b.cd-=dt; }
+
+  if(state==='count'){
+    countT += dt;
+    if(countT>=0.85){
+      countT=0; countN--;
+      if(countN>0){ drawCenter([{text:String(countN), s:220, col:'#2ee6d6'}]); sfx.count(); }
+      else { drawCenter([{text:t('go'), s:200, col:'#b8f34d'}]); startPlay(); }
+    }
+  } else if(state==='play'){
+    timeLeft -= dt;
+    spawnTimer -= dt;
+    updateCreatures(dt);
+    if(spawnTimer<=0){
+      spawn();
+      const maxConc = {easy:2, normal:3, hard:4}[settings.diff];
+      if(active.length<maxConc && Math.random()<0.4) spawn();
+      spawnTimer = difficultyRate();
+    }
+    checkHits();
+    drawHUD(score, combo, timeLeft);
+    if(timeLeft<=0) endGame();
+  } else {
+    checkHits(); // pour les boutons start/rejouer/menu
+  }
+
+  // orientation des panneaux vers la tête en preview non-VR
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(render);
+
+/* ---------------------------------------------------------------- Session VR */
+let vrReady=false, xrSession=null;
+function buildInVRButtons(){
+  if(!btnAgain){
+    btnStart = makeButton(lang==='fr'?'START':'START', '#b8f34d', 0, ()=>{ if(state==='idle') startCountdown(); });
+    btnStart.mesh.position.set(0,1.18,-0.85);
+    btnAgain = makeButton(t('again'), '#2ee6d6', -0.2, ()=>{ startCountdown(); });
+    btnMenu  = makeButton(t('menu'),  '#8b93a7',  0.2, ()=>{ if(xrSession) xrSession.end(); });
+    btnAgain.mesh.position.set(-0.2,1.02,-0.85);
+    btnMenu.mesh.position.set(0.2,1.02,-0.85);
+  }
+}
+function showStartScreen(){
+  state='idle';
+  buildInVRButtons();
+  drawCenter([
+    {text:'NEON GRUB', s:78, col:'#b8f34d', gap:8},
+    {text:t('start'), s:60, col:'#f4f6fb'}
+  ]);
+  board.mesh.visible=true;
+  showButtons([btnStart]);
+}
+
+if(navigator.xr){
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+    vrReady = ok;
+    if(ok){
+      btn.disabled=false;
+      btn.onclick = async ()=>{
+        try{
+          audio().resume();
+          xrSession = await navigator.xr.requestSession('immersive-vr',
+            {optionalFeatures:['local-floor','bounded-floor','hand-tracking']});
+          renderer.xr.setReferenceSpaceType('local-floor');
+          await renderer.xr.setSession(xrSession);
+          overlay.classList.add('hidden');
+          document.getElementById('lang').style.display='none';
+          showStartScreen();
+          xrSession.addEventListener('end', ()=>{
+            overlay.classList.remove('hidden');
+            document.getElementById('lang').style.display='';
+            state='idle'; xrSession=null;
+            active.slice().forEach(o=>popCreature(o,false));
+            board.mesh.visible=false; buttons.forEach(b=>b.mesh.visible=false);
+            if(voiceOK) try{ speechSynthesis.cancel(); }catch(e){}
+            renderOverlay();
+          });
+        }catch(e){ statusEl.textContent = t('err') + e.message; }
+      };
+    }
+    renderOverlay();
+  });
+} else {
+  renderOverlay();
+}
+
+// preview non-VR : légère rotation de caméra
+let previewA=0;
+setInterval(()=>{
+  if(!xrSession){ previewA+=0.003; camera.position.x=Math.sin(previewA)*0.5; camera.lookAt(0,1.4,-0.4); }
+},16);
+
+addEventListener('resize', ()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+renderOverlay();
+</script>
+</body>
+</html>
