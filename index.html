@@ -95,6 +95,9 @@
 import { Engine } from './engine.js';
 import { Hub } from './hub.js';
 import whackamole from './games/whackamole.js';
+import butterflies from './games/butterflies.js';
+import ducks from './games/ducks.js';
+import shooting from './games/shooting.js';
 
 const T = {
   fr:{
@@ -120,7 +123,7 @@ let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
 const t = k => T[lang][k];
 
 const engine = new Engine();
-engine.registerGames([whackamole]);
+engine.registerGames([whackamole, butterflies, ducks, shooting]);
 const hub = new Hub(engine);
 engine.setHub(hub);
 

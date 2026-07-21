@@ -25,7 +25,7 @@ export class Engine {
     this.buttons=[]; this.popups=[]; this.particles=[]; this.fireflies=[];
     this.xrSession=null; this.boundedSpace=null; this.vrReady=false; this.arReady=false;
 
-    this._tmp=new THREE.Vector3(); this._tmp2=new THREE.Vector3(); this._vq=new THREE.Quaternion();
+    this._tmp=new THREE.Vector3(); this._tmp2=new THREE.Vector3(); this._vq=new THREE.Quaternion(); this._q=new THREE.Quaternion();
 
     this._buildScene();
     this._buildForest();
@@ -144,7 +144,7 @@ export class Engine {
 
   /* ---------- Contrôleurs ---------- */
   _buildControllers(){
-    this.mallets=[]; const COL=[0x2ee6d6,0xff4d5e];
+    this.mallets=[]; this.grips=[]; this.malletVisual=[]; this._tools=[]; const COL=[0x2ee6d6,0xff4d5e];
     for(let i=0;i<2;i++){
       const grip=this.renderer.xr.getControllerGrip(i); const g=new THREE.Group();
       const handle=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.018,0.14,12), new THREE.MeshStandardMaterial({color:0x1a2030,roughness:.6,metalness:.4}));
@@ -152,10 +152,43 @@ export class Engine {
       const head=new THREE.Mesh(new THREE.SphereGeometry(0.05,20,16), new THREE.MeshStandardMaterial({color:COL[i],emissive:COL[i],emissiveIntensity:.9,roughness:.35}));
       head.position.z=-0.12; g.add(head);
       const ring=new THREE.Mesh(new THREE.TorusGeometry(0.058,0.008,10,24), new THREE.MeshBasicMaterial({color:COL[i]})); ring.position.z=-0.12; g.add(ring);
-      grip.add(g); this.scene.add(grip); this.mallets.push(head);
+      grip.add(g); this.scene.add(grip); this.mallets.push(head); this.grips.push(grip); this.malletVisual.push(g);
+    }
+    // contrôleurs "ray" pour la gâchette (jeux de tir)
+    this.controllers=[];
+    for(let i=0;i<2;i++){
+      const c=this.renderer.xr.getController(i); this.scene.add(c);
+      c.addEventListener('selectstart', ()=>{ if(this.state==='play') this.currentGame && this.currentGame.onTrigger && this.currentGame.onTrigger(i,this); });
+      this.controllers.push(c);
     }
   }
+  // Rayon de visée : remplit origin (position) et dir (direction -Z monde) du contrôleur i.
+  aimRay(i, origin, dir){
+    const c=this.controllers[i]; c.getWorldPosition(origin);
+    dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
+  }
+  // Filet réutilisable (papillons, canards…). userData.cp = point de capture.
+  makeNet(i){
+    const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
+    const handle=new T.Mesh(new T.CylinderGeometry(0.009,0.011,0.16,10), new T.MeshStandardMaterial({color:0x1a2030,roughness:.6,metalness:.4}));
+    handle.rotation.x=Math.PI/2; handle.position.z=-0.08; g.add(handle);
+    const ring=new T.Mesh(new T.TorusGeometry(0.075,0.006,10,28), new T.MeshBasicMaterial({color})); ring.position.z=-0.16; g.add(ring);
+    const bag=new T.Mesh(new T.ConeGeometry(0.075,0.14,16,1,true), new T.MeshBasicMaterial({color,transparent:true,opacity:.22,side:T.DoubleSide}));
+    bag.rotation.x=Math.PI/2; bag.position.z=-0.23; g.add(bag);
+    const cp=new T.Object3D(); cp.position.set(0,0,-0.16); g.add(cp); g.userData.cp=cp;
+    return g;
+  }
   eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); cb(this._tmp,i); } }
+  // Échange l'outil en main : masque le maillet par défaut et attache l'objet renvoyé par fn(i) au contrôleur.
+  setTool(fn){
+    this.clearTool();
+    for(let i=0;i<this.grips.length;i++){ this.malletVisual[i].visible=false; const tool=fn(i); if(tool){ this.grips[i].add(tool); this._tools.push(tool); } }
+  }
+  clearTool(){
+    for(const tl of this._tools){ tl.parent && tl.parent.remove(tl); }
+    this._tools.length=0;
+    for(const v of this.malletVisual) v.visible=true;
+  }
 
   /* ---------- Panneaux / HUD / boutons ---------- */
   _makePanel(w,h,px){
@@ -217,7 +250,8 @@ export class Engine {
       count:()=>this._beep(520,0.1,'sine',0.14),
       go:()=>this._beep(880,0.25,'triangle',0.2,1200),
       end:()=>{ this._beep(600,0.15,'triangle',0.16,400); setTimeout(()=>this._beep(400,0.3,'sine',0.16,200),150); },
-      pick:()=>{ this._beep(700,0.08,'square',0.16,1100); setTimeout(()=>this._beep(1100,0.1,'square',0.14,1500),60); }
+      pick:()=>{ this._beep(700,0.08,'square',0.16,1100); setTimeout(()=>this._beep(1100,0.1,'square',0.14,1500),60); },
+      shot:()=>this._beep(880,0.06,'square',0.14,220)
     };
     this.voiceOK='speechSynthesis' in window;
   }
