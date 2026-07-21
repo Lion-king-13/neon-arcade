@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NEON ARCADE — Tape-Chenille</title>
+<title>NEON ARCADE — Meta Quest 3</title>
 <style>
   :root{
     --ink:#0b0e14; --panel:#131826; --steel:#8b93a7;
@@ -22,12 +22,11 @@
   #overlay.hidden{opacity:0;pointer-events:none}
   .kicker{color:var(--lime);letter-spacing:.34em;text-transform:uppercase;font-size:.74rem;font-weight:800;margin-bottom:10px}
   h1{
-    font-size:clamp(2.6rem,8vw,5.2rem);font-weight:900;letter-spacing:.05em;line-height:.9;
+    font-size:clamp(2.6rem,8vw,5.4rem);font-weight:900;letter-spacing:.05em;line-height:.9;
     background:linear-gradient(92deg,var(--lime) 0%,var(--cyan) 52%,var(--violet) 100%);
     -webkit-background-clip:text;background-clip:text;color:transparent;text-transform:uppercase;
   }
-  .sub{color:var(--white);font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:.9rem;margin-top:8px}
-  .tag{color:var(--steel);margin:12px 0 22px;font-size:.98rem;letter-spacing:.08em;text-transform:uppercase;max-width:32ch}
+  .tag{color:var(--steel);margin:14px 0 24px;font-size:.98rem;letter-spacing:.08em;text-transform:uppercase;max-width:34ch}
   .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
   .seg{display:inline-flex;background:var(--panel);border:1px solid #232a3d;border-radius:999px;padding:4px;gap:2px}
   .seg button{
@@ -41,14 +40,12 @@
   #vrbtn{
     font:inherit;font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;
     color:var(--ink);background:var(--lime);border:none;border-radius:999px;
-    padding:17px 42px;cursor:pointer;margin-top:10px;box-shadow:0 0 34px rgba(184,243,77,.4);transition:.2s;
+    padding:17px 42px;cursor:pointer;margin-top:12px;box-shadow:0 0 34px rgba(184,243,77,.4);transition:.2s;
   }
   #vrbtn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 0 46px rgba(184,243,77,.6)}
   #vrbtn:disabled{background:#2a3145;color:var(--steel);box-shadow:none;cursor:default}
   #vrbtn:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
-  .best{margin-top:16px;color:var(--gold);font-weight:800;letter-spacing:.08em}
-  .best span{color:var(--steel);font-weight:600}
-  #status{margin-top:14px;color:var(--steel);font-size:.8rem;min-height:1.2em;max-width:42ch}
+  #status{margin-top:16px;color:var(--steel);font-size:.8rem;min-height:1.2em;max-width:44ch}
   .how{margin-top:16px;color:var(--steel);font-size:.78rem;line-height:1.7;max-width:34ch}
   .how b{color:var(--white)}
   #lang{position:fixed;top:16px;right:18px;z-index:11;color:var(--steel);font-size:.82rem;font-weight:700}
@@ -61,7 +58,6 @@
 <div id="overlay">
   <div class="kicker" id="kicker">Meta Quest 3</div>
   <h1>NEON ARCADE</h1>
-  <div class="sub" id="sub">Tape-Chenille</div>
   <p class="tag" id="tag"></p>
 
   <div class="row">
@@ -91,871 +87,109 @@
   </div>
 
   <button id="vrbtn" disabled></button>
-  <div class="best" id="best"></div>
   <div class="how" id="how"></div>
   <div id="status"></div>
 </div>
 
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { Engine } from './engine.js';
+import { Hub } from './hub.js';
+import whackamole from './games/whackamole.js';
 
-/* ------------------------------------------------------------ i18n */
 const T = {
   fr:{
-    tag:"Écrase les chenilles qui sortent des terriers. Vise vite, évite les scarabées.",
+    tag:"Une arcade de mini-jeux à jouer debout, tout le corps engagé.",
     mode:"Mode", modeVR:"Immersion", modeAR:"Passthrough",
-    diff:"Difficulté", time:"Durée",
-    easy:"Tranquille", normal:"Normal", hard:"Intense",
+    diff:"Difficulté", time:"Durée", easy:"Tranquille", normal:"Normal", hard:"Intense",
     enter:"Entrer en immersion", enterAR:"Entrer en réalité mixte", noVR:"Casque VR requis",
     needHeadset:"Ouvre cette page dans le navigateur du Meta Quest 3, puis appuie sur le bouton.",
-    arNote:"Passthrough : les chenilles sortent de tes vrais murs, sol et plafond, dans ta zone de jeu (pièce scannée sur le Quest).",
-    best:"Meilleur score", none:"—",
-    how:"Chenille <b>verte</b> = +1 · <b>dorée</b> = +5 · <b>scarabée rouge</b> = −3 (à éviter). Enchaîne sans rater pour le combo.",
-    err:"Session impossible : ",
-    scanning:"Analyse de la zone…",
-    start:"TAPE POUR\nDÉMARRER",
-    go:"GO", timeUp:"TEMPS !",
-    score:"SCORE", combo:"COMBO", time2:"TEMPS",
-    again:"REJOUER", menu:"MENU",
-    result:"TERMINÉ", newbest:"NOUVEAU RECORD !",
-    hitsL:"Touchées", accL:"Précision"
+    arNote:"Passthrough : le jeu utilise tes vrais murs, sol et plafond, dans ta zone Guardian.",
+    how:"Au casque, choisis un jeu dans le hub, puis tape le panneau pour démarrer."
   },
   en:{
-    tag:"Smash the grubs popping from the burrows. Aim fast, dodge the beetles.",
+    tag:"A mini-game arcade you play standing, with your whole body.",
     mode:"Mode", modeVR:"Immersive", modeAR:"Passthrough",
-    diff:"Difficulty", time:"Duration",
-    easy:"Chill", normal:"Normal", hard:"Intense",
+    diff:"Difficulty", time:"Duration", easy:"Chill", normal:"Normal", hard:"Intense",
     enter:"Enter immersive", enterAR:"Enter mixed reality", noVR:"VR headset required",
     needHeadset:"Open this page in the Meta Quest 3 browser, then press the button.",
-    arNote:"Passthrough: grubs pop from your real walls, floor and ceiling, inside your play area (scanned room on the Quest).",
-    best:"Best score", none:"—",
-    how:"<b>Green</b> grub = +1 · <b>golden</b> = +5 · <b>red beetle</b> = −3 (avoid). Keep hitting for the combo.",
-    err:"Cannot start session: ",
-    scanning:"Scanning your area…",
-    start:"TAP TO\nSTART",
-    go:"GO", timeUp:"TIME!",
-    score:"SCORE", combo:"COMBO", time2:"TIME",
-    again:"PLAY AGAIN", menu:"MENU",
-    result:"FINISHED", newbest:"NEW RECORD!",
-    hitsL:"Hits", accL:"Accuracy"
+    arNote:"Passthrough: the game uses your real walls, floor and ceiling, inside your Guardian area.",
+    how:"In the headset, pick a game in the hub, then tap the panel to start."
   }
 };
 let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
-function t(k){ return T[lang][k]; }
+const t = k => T[lang][k];
 
-/* ------------------------------------------------------------ DOM */
+const engine = new Engine();
+engine.registerGames([whackamole]);
+const hub = new Hub(engine);
+engine.setHub(hub);
+
 const overlay = document.getElementById('overlay');
 const btn = document.getElementById('vrbtn');
 const statusEl = document.getElementById('status');
-const bestEl = document.getElementById('best');
-
 const settings = { mode:'vr', diff:'normal', dur:60 };
+
 function wireSeg(id, key, cast, cb){
   const box = document.getElementById(id);
   box.querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{
+    b.onclick=()=>{
       if(b.disabled) return;
       box.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
       b.classList.add('on');
-      settings[key] = cast ? cast(b.dataset.v) : b.dataset.v;
+      settings[key]= cast? cast(b.dataset.v) : b.dataset.v;
       if(cb) cb();
     };
   });
 }
 function updateEnterBtn(){
-  const ok = settings.mode==='ar' ? arReady : vrReady;
+  const ok = settings.mode==='ar' ? engine.arReady : engine.vrReady;
   btn.disabled = !ok;
-  btn.textContent = ok ? (settings.mode==='ar' ? t('enterAR') : t('enter')) : t('noVR');
+  btn.textContent = ok ? (settings.mode==='ar'? t('enterAR') : t('enter')) : t('noVR');
   statusEl.textContent = settings.mode==='ar' ? t('arNote') : (ok? '' : t('needHeadset'));
 }
 wireSeg('mode','mode',null,updateEnterBtn);
 wireSeg('diff','diff');
 wireSeg('dur','dur',v=>parseInt(v,10));
 
-function bestKey(){ return 'neonarcade_grub_'+settings.diff+'_'+settings.dur; }
-function getBest(){ return parseInt(localStorage.getItem(bestKey())||'0',10); }
-function setBest(v){ try{ localStorage.setItem(bestKey(), String(v)); }catch(e){} }
-
-function renderOverlay(){
+function renderMenu(){
   document.documentElement.lang = lang;
-  document.getElementById('sub').textContent = 'Tape-Chenille';
   document.getElementById('tag').textContent = t('tag');
   document.getElementById('lblMode').textContent = t('mode');
   document.getElementById('lblDiff').textContent = t('diff');
   document.getElementById('lblTime').textContent = t('time');
-  const md = document.getElementById('mode').children;
-  md[0].textContent=t('modeVR'); md[1].textContent=t('modeAR');
-  const df = document.getElementById('diff').children;
-  df[0].textContent=t('easy'); df[1].textContent=t('normal'); df[2].textContent=t('hard');
-  const b = getBest();
-  bestEl.innerHTML = '<span>'+t('best')+' : </span>' + (b>0? b : t('none'));
-  document.getElementById('how').innerHTML = t('how');
-  const lp = document.getElementById('lang');
-  lp.innerHTML = '<a data-l="fr" class="'+(lang==='fr'?'on':'')+'">FR</a>·<a data-l="en" class="'+(lang==='en'?'on':'')+'">EN</a>';
-  lp.querySelectorAll('a').forEach(a=>a.onclick=()=>{ lang=a.dataset.l; renderOverlay(); updateEnterBtn(); });
+  const md=document.getElementById('mode').children; md[0].textContent=t('modeVR'); md[1].textContent=t('modeAR');
+  const df=document.getElementById('diff').children; df[0].textContent=t('easy'); df[1].textContent=t('normal'); df[2].textContent=t('hard');
+  document.getElementById('how').textContent = t('how');
+  const lp=document.getElementById('lang');
+  lp.innerHTML='<a data-l="fr" class="'+(lang==='fr'?'on':'')+'">FR</a>·<a data-l="en" class="'+(lang==='en'?'on':'')+'">EN</a>';
+  lp.querySelectorAll('a').forEach(a=>a.onclick=()=>{ lang=a.dataset.l; engine.lang=lang; renderMenu(); updateEnterBtn(); });
   updateEnterBtn();
 }
 
-/* ------------------------------------------------------------ THREE base */
-const scene = new THREE.Scene();
-function makeSky(){
-  const cv=document.createElement('canvas'); cv.width=16; cv.height=256;
-  const g=cv.getContext('2d');
-  const grad=g.createLinearGradient(0,0,0,256);
-  grad.addColorStop(0.00,'#090d28');
-  grad.addColorStop(0.52,'#0d2033');
-  grad.addColorStop(0.78,'#123b39');
-  grad.addColorStop(1.00,'#08130f');
-  g.fillStyle=grad; g.fillRect(0,0,16,256);
-  const tex=new THREE.CanvasTexture(cv); tex.needsUpdate=true; return tex;
-}
-const skyTex = makeSky();
-scene.background = skyTex;
-scene.fog = new THREE.FogExp2(0x0a1a17, 0.085);
-
-const camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.05, 100);
-camera.position.set(0, 1.55, 1.1);
-
-const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.xr.enabled = true;
-document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0x9fb4c9, 0x203028, 1.1));
-const key = new THREE.DirectionalLight(0xcfe0ff, 0.85);
-key.position.set(2,5,2); scene.add(key);
-const rim = new THREE.PointLight(0x8b6cff, 5, 12); rim.position.set(0,2.4,-1.2); scene.add(rim);
-
-const grid = new THREE.GridHelper(24, 48, 0x2ee6d6, 0x123028);
-grid.material.transparent = true; grid.material.opacity = 0.28;
-scene.add(grid);
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(14, 48),
-  new THREE.MeshStandardMaterial({color:0x0b1512, roughness:1, metalness:0})
-);
-floor.rotation.x = -Math.PI/2; floor.position.y = -0.002; scene.add(floor);
-
-/* décor forêt (visible en immersion) */
-const envGroup = new THREE.Group(); scene.add(envGroup);
-const fireflies = [];
-function buildForest(){
-  const trunkMat = new THREE.MeshStandardMaterial({color:0x201a2e, roughness:.9});
-  const folA = new THREE.MeshStandardMaterial({color:0x1f6f55, emissive:0x0e3b2c, emissiveIntensity:.35, roughness:.75});
-  const folB = new THREE.MeshStandardMaterial({color:0x2ea27a, emissive:0x14513a, emissiveIntensity:.42, roughness:.75});
-  const N=16;
-  for(let i=0;i<N;i++){
-    const a=(i/N)*Math.PI*2 + (Math.random()-.5)*0.28;
-    const rad=3.2 + Math.random()*2.6;
-    const tree=new THREE.Group();
-    const h=1.6 + Math.random()*1.9;
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.10,h*0.5,7), trunkMat);
-    trunk.position.y=h*0.25; tree.add(trunk);
-    for(let l=0;l<3;l++){
-      const cone=new THREE.Mesh(new THREE.ConeGeometry(0.58-l*0.13, 0.82, 8), l%2?folB:folA);
-      cone.position.y=h*0.45 + l*0.42; tree.add(cone);
-    }
-    tree.position.set(Math.cos(a)*rad, 0, Math.sin(a)*rad);
-    tree.rotation.y=Math.random()*Math.PI;
-    tree.scale.setScalar(0.8+Math.random()*0.7);
-    envGroup.add(tree);
-  }
-  const moon=new THREE.Mesh(new THREE.SphereGeometry(0.7,20,16), new THREE.MeshBasicMaterial({color:0xe4e9ff}));
-  moon.position.set(-4.5,4.6,-6.5); envGroup.add(moon);
-  const glow=new THREE.Mesh(new THREE.SphereGeometry(1.0,20,16), new THREE.MeshBasicMaterial({color:0x8ea0ff, transparent:true, opacity:0.14}));
-  glow.position.copy(moon.position); envGroup.add(glow);
-  const ffGeo=new THREE.SphereGeometry(0.016,6,6);
-  const ffMat=new THREE.MeshBasicMaterial({color:0xd6f56e});
-  for(let i=0;i<30;i++){
-    const f=new THREE.Mesh(ffGeo, ffMat);
-    const base=new THREE.Vector3((Math.random()-.5)*7, 0.4+Math.random()*2.4, (Math.random()-.5)*7);
-    f.position.copy(base); envGroup.add(f);
-    fireflies.push({mesh:f, base, ph:Math.random()*6.28, sp:0.4+Math.random()*0.6});
-  }
-}
-buildForest();
-function updateFireflies(time){
-  for(const f of fireflies){
-    f.mesh.position.x=f.base.x+Math.sin(time*f.sp+f.ph)*0.25;
-    f.mesh.position.y=f.base.y+Math.sin(time*f.sp*0.7+f.ph)*0.18;
-    f.mesh.position.z=f.base.z+Math.cos(time*f.sp+f.ph)*0.25;
-  }
-}
-
-function setEnvironment(mode){
-  const ar = mode==='ar';
-  grid.visible=!ar; floor.visible=!ar; rim.visible=!ar; envGroup.visible=!ar;
-  scene.background = ar ? null : skyTex;
-  scene.fog = ar ? null : new THREE.FogExp2(0x0a1a17, 0.085);
-  renderer.setClearAlpha(ar ? 0 : 1);
-}
-
-/* ------------------------------------------------------------ Contrôleurs + maillets */
-const malletHeads = [];
-const MALLET_COL = [0x2ee6d6, 0xff4d5e];
-function makeMallet(color){
-  const g = new THREE.Group();
-  const handle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.014,0.018,0.14,12),
-    new THREE.MeshStandardMaterial({color:0x1a2030, roughness:.6, metalness:.4})
-  );
-  handle.rotation.x = -Math.PI/2; handle.position.z = -0.02; g.add(handle);
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.05, 20, 16),
-    new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.9, roughness:.35})
-  );
-  head.position.z = -0.12; g.add(head);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.058,0.008,10,24), new THREE.MeshBasicMaterial({color}));
-  ring.position.z = -0.12; g.add(ring);
-  g.userData.head = head;
-  return g;
-}
-for(let i=0;i<2;i++){
-  const grip = renderer.xr.getControllerGrip(i);
-  const m = makeMallet(MALLET_COL[i]);
-  grip.add(m); scene.add(grip);
-  malletHeads[i] = m.userData.head;
-}
-
-/* ------------------------------------------------------------ Terriers */
-const FIELD = new THREE.Group(); scene.add(FIELD);
-const EMERGE = 0.19;
-const HIT_R = 0.14;
-const ZAXIS = new THREE.Vector3(0,0,1);
-const YAXIS = new THREE.Vector3(0,1,0);
-
-const burrows = [];
-const ringMat = new THREE.MeshStandardMaterial({color:0x2a2140, emissive:0x8b6cff, emissiveIntensity:.5, roughness:.5});
-const discMat = new THREE.MeshBasicMaterial({color:0x04060b});
-const tubeMat = new THREE.MeshBasicMaterial({color:0x04060b, side:THREE.DoubleSide});
-const ringGeo = new THREE.TorusGeometry(0.1, 0.02, 12, 28);
-const discGeo = new THREE.CircleGeometry(0.098, 24);
-const tubeGeo = new THREE.CylinderGeometry(0.096, 0.096, 0.22, 18, 1, true);
-
-function addBurrow(pos, normal, emerge){
-  const q = new THREE.Quaternion().setFromUnitVectors(ZAXIS, normal);
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.position.copy(pos); ring.quaternion.copy(q); FIELD.add(ring);
-  const disc = new THREE.Mesh(discGeo, discMat);
-  disc.position.copy(pos).add(normal.clone().multiplyScalar(-0.02));
-  disc.quaternion.copy(q); FIELD.add(disc);
-  const tube = new THREE.Mesh(tubeGeo, tubeMat);
-  tube.quaternion.setFromUnitVectors(YAXIS, normal);
-  tube.position.copy(pos).add(normal.clone().multiplyScalar(-0.11)); FIELD.add(tube);
-  burrows.push({pos:pos.clone(), normal:normal.clone(), emerge, ring, disc, tube, occupied:null});
-}
-function clearBurrows(){
-  active.slice().forEach(o=>popCreature(o,false));
-  burrows.forEach(b=>{ FIELD.remove(b.ring); if(b.disc) FIELD.remove(b.disc); if(b.tube) FIELD.remove(b.tube); });
-  burrows.length = 0;
-}
-/* Immersion : arc devant le joueur, terriers tournés vers lui, bien étalés */
-function buildArcBurrows(){
-  clearBurrows();
-  const PLAYER = new THREE.Vector3(0,1.5,0);
-  const yaws = [-68,-34,0,34,68].map(d=>d*Math.PI/180);
-  const pitches = [-52,-14,26].map(d=>d*Math.PI/180);
-  for(const pit of pitches){
-    for(const yaw of yaws){
-      const y = yaw + (Math.random()-.5)*0.12;
-      const p = pit + (Math.random()-.5)*0.10;
-      const d = new THREE.Vector3(Math.sin(y)*Math.cos(p), Math.sin(p), -Math.cos(y)*Math.cos(p)).normalize();
-      const dist = 0.80 + Math.random()*0.18;
-      const pos = PLAYER.clone().add(d.clone().multiplyScalar(dist));
-      pos.y = Math.max(pos.y, 0.25);
-      addBurrow(pos, d.clone().negate(), EMERGE); // normale = vers le joueur
-    }
-  }
-}
-function buildPlaneBurrows(spots){ clearBurrows(); spots.forEach(s=> addBurrow(s.pos, s.normal, s.emerge)); }
-
-/* ------------------------------------------------------------ Passthrough : détection surfaces + zone */
-function pointInPoly(x,z,poly){
-  let inside=false;
-  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-    const xi=poly[i].x, zi=poly[i].z, xj=poly[j].x, zj=poly[j].z;
-    const inter = ((zi>z)!==(zj>z)) && (x < (xj-xi)*(z-zi)/((zj-zi)||1e-9)+xi);
-    if(inter) inside=!inside;
-  }
-  return inside;
-}
-function boundsPolygon(frame, ref){
-  if(!boundedSpace || !boundedSpace.boundsGeometry || boundedSpace.boundsGeometry.length<3) return null;
-  let bp; try{ bp = frame.getPose(boundedSpace, ref); }catch(e){ return null; }
-  if(!bp) return null;
-  const bm = new THREE.Matrix4().fromArray(bp.transform.matrix);
-  return boundedSpace.boundsGeometry.map(pt=>{
-    const w = new THREE.Vector3(pt.x,0,pt.z).applyMatrix4(bm);
-    return {x:w.x, z:w.z};
-  });
-}
-function sampleSpots(frame){
-  const out = [];
-  const ref = renderer.xr.getReferenceSpace();
-  if(!frame || !frame.detectedPlanes || !ref) return out;
-  const player = new THREE.Vector3(0,1.2,0);
-  const zone = boundsPolygon(frame, ref);       // limite Guardian (si définie)
-  const MAX_DIST = 2.4;                          // portée max autour du joueur
-  const FURNITURE = ['table','desk','couch','sofa','shelf','storage','bed','screen','lamp','plant','other','window','door','wall art'];
-  frame.detectedPlanes.forEach(plane=>{
-    let pose; try{ pose = frame.getPose(plane.planeSpace, ref); }catch(e){ return; }
-    if(!pose || !plane.polygon || plane.polygon.length<3) return;
-    const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
-    const label = (plane.semanticLabel||'').toLowerCase();
-    let kind;
-    if(label.includes('floor')) kind='floor';
-    else if(label.includes('ceiling')) kind='ceiling';
-    else if(label.includes('wall')) kind='wall';
-    else if(FURNITURE.some(k=>label.includes(k))) return;   // ignore le mobilier
-    else if(plane.orientation==='horizontal'){
-      const y=(new THREE.Vector3().setFromMatrixPosition(m)).y;
-      if(y<0.35) kind='floor'; else if(y>1.6) kind='ceiling'; else return; // table/meuble
-    } else kind='wall';
-
-    const poly = plane.polygon.map(p=>({x:p.x, z:p.z}));
-    let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
-    poly.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);});
-    const perPlane = kind==='floor'?4:3;
-    let placed=0, tries=0;
-    while(placed<perPlane && tries<60){
-      tries++;
-      const px = minX + Math.random()*(maxX-minX);
-      const pz = minZ + Math.random()*(maxZ-minZ);
-      if(!pointInPoly(px,pz,poly)) continue;
-      const world = new THREE.Vector3(px,0,pz).applyMatrix4(m);
-      if(kind!=='ceiling' && (world.y<0.25 || world.y>2.2)) continue;
-      // dans la zone de jeu + à portée
-      if(Math.hypot(world.x-player.x, world.z-player.z) > MAX_DIST) continue;
-      if(zone && !pointInPoly(world.x, world.z, zone)) continue;
-      let normal, emerge;
-      if(kind==='floor'){ normal=new THREE.Vector3(0,1,0); emerge=0.2; world.y=Math.max(world.y,0.03); }
-      else if(kind==='ceiling'){ normal=new THREE.Vector3(0,-1,0); emerge=THREE.MathUtils.clamp(world.y-1.75,0.4,1.1); }
-      else {
-        normal=new THREE.Vector3(player.x-world.x, 0, player.z-world.z);
-        if(normal.lengthSq()<1e-4) normal.set(0,0,1);
-        normal.normalize(); emerge=0.22;
-      }
-      if(out.some(s=>s.pos.distanceTo(world)<0.35)) continue;
-      out.push({pos:world, normal, emerge, kind});
-      placed++;
-    }
-  });
-  return out.slice(0,16);
-}
-
-/* ------------------------------------------------------------ Créatures (modèles) */
-const M = {
-  gLight: new THREE.MeshStandardMaterial({color:0xd6f56e, emissive:0x86c72f, emissiveIntensity:.45, roughness:.5}),
-  gDark:  new THREE.MeshStandardMaterial({color:0xa6dd42, emissive:0x5fa11e, emissiveIntensity:.4, roughness:.55}),
-  gold:   new THREE.MeshStandardMaterial({color:0xffd54a, emissive:0xe0a915, emissiveIntensity:.75, roughness:.35, metalness:.35}),
-  eye:    new THREE.MeshBasicMaterial({color:0xf7f9ff}),
-  pupil:  new THREE.MeshBasicMaterial({color:0x0b0e14}),
-  ant:    new THREE.MeshStandardMaterial({color:0x2f4d16, emissive:0x18280b, roughness:.6}),
-  antTip: new THREE.MeshStandardMaterial({color:0xff5a8a, emissive:0xff5a8a, emissiveIntensity:.85}),
-  shell:  new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0xb0202d, emissiveIntensity:.5, roughness:.4, metalness:.2}),
-  spot:   new THREE.MeshStandardMaterial({color:0x2a0a0e, roughness:.6}),
-  spike:  new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0x6a3a00, roughness:.5}),
-  leg:    new THREE.MeshStandardMaterial({color:0x161018, roughness:.7})
-};
-const sphereGeo = new THREE.SphereGeometry(1, 14, 12);
-const eyeGeo = new THREE.SphereGeometry(0.016, 10, 8);
-const pupGeo = new THREE.SphereGeometry(0.008, 8, 6);
-const antGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.06, 6);
-const antTipGeo = new THREE.SphereGeometry(0.011, 8, 6);
-const legGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.06, 6);
-
-function makeGrub(gold){
-  const g = new THREE.Group();
-  const L=0.24, A=0.13, N=8, R=0.055;
-  const wigParts=[]; let mid=null, base=null;
-  for(let i=0;i<N-1;i++){
-    const s=i/(N-1);
-    const prof=0.62+0.5*Math.sin(Math.PI*Math.min(1,s*0.9+0.14));
-    const r=R*prof;
-    const seg=new THREE.Mesh(sphereGeo, gold?M.gold:(i%2?M.gDark:M.gLight));
-    const yy=L*s, zz=A*s*s;
-    seg.position.set(0,yy,zz); seg.scale.setScalar(r);
-    seg.userData={s,x0:0,y0:yy,z0:zz};
-    g.add(seg); wigParts.push(seg);
-    if(i===0) base=seg;
-    if(i===Math.floor((N-1)/2)) mid=seg;
-  }
-  const hr=new THREE.Group();
-  const hy=L, hz=A, hR=R*1.15;
-  hr.position.set(0,hy,hz);
-  hr.userData={s:1,x0:0,y0:hy,z0:hz};
-  const hsphere=new THREE.Mesh(sphereGeo, gold?M.gold:M.gLight);
-  hsphere.scale.setScalar(hR); hr.add(hsphere);
-  [-1,1].forEach(sx=>{
-    const e=new THREE.Mesh(eyeGeo, M.eye);
-    e.position.set(sx*hR*0.5, hR*0.28, hR*0.86);
-    const p=new THREE.Mesh(pupGeo, M.pupil); p.position.set(0,0,0.012); e.add(p);
-    hr.add(e);
-    const ant=new THREE.Mesh(antGeo, M.ant);
-    ant.position.set(sx*hR*0.35, hR*0.95, hR*0.4);
-    ant.rotation.set(-0.5, 0, sx*0.45);
-    const tip=new THREE.Mesh(antTipGeo, M.antTip); tip.position.set(0,0.035,0); ant.add(tip);
-    hr.add(ant);
-  });
-  g.add(hr); wigParts.push(hr);
-  for(let i=1;i<N-1;i+=2){
-    const s=i/(N-1), yy=L*s, zz=A*s*s;
-    [-1,1].forEach(sx=>{
-      const leg=new THREE.Mesh(sphereGeo, M.leg);
-      leg.scale.setScalar(R*0.28);
-      leg.position.set(sx*R*0.95, yy-R*0.35, zz);
-      g.add(leg);
-    });
-  }
-  return {group:g, L, hitParts:[hr, mid||base, base], wigParts};
-}
-
-function makeBeetle(){
-  const g=new THREE.Group(); const L=0.12;
-  const shell=new THREE.Mesh(sphereGeo, M.shell);
-  shell.scale.set(0.085,0.055,0.1); shell.position.set(0,L,0.0); g.add(shell);
-  const line=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.002,0.16), M.spot);
-  line.position.set(0,L+0.052,0); g.add(line);
-  [[-0.045,0.03],[0.045,0.03],[-0.04,-0.03],[0.04,-0.03]].forEach(([x,z])=>{
-    const sp=new THREE.Mesh(sphereGeo, M.spot); sp.scale.set(0.016,0.006,0.016);
-    sp.position.set(x, L+0.05, z); g.add(sp);
-  });
-  const head=new THREE.Mesh(sphereGeo, M.shell); head.scale.setScalar(0.04); head.position.set(0,L,0.1); g.add(head);
-  [-1,1].forEach(sx=>{
-    const e=new THREE.Mesh(eyeGeo, M.eye); e.position.set(sx*0.022, L+0.012, 0.125);
-    const p=new THREE.Mesh(pupGeo, M.pupil); p.position.set(0,0,0.012); e.add(p); g.add(e);
-    const sp=new THREE.Mesh(new THREE.ConeGeometry(0.014,0.05,7), M.spike);
-    sp.position.set(sx*0.03, L+0.07, 0.02); sp.rotation.z=sx*0.3; g.add(sp);
-  });
-  for(let k=0;k<3;k++){ const zz=-0.045+k*0.045;
-    [-1,1].forEach(sx=>{
-      const leg=new THREE.Mesh(legGeo, M.leg);
-      leg.position.set(sx*0.07, L-0.035, zz); leg.rotation.z=sx*0.95; g.add(leg);
-    });
-  }
-  return {group:g, L, hitParts:[shell, head], wigParts:[]};
-}
-
-/* ------------------------------------------------------------ Créatures (logique) */
-const active = [];
-function spawn(){
-  const free = burrows.filter(b=>!b.occupied);
-  if(!free.length) return;
-  const b = free[(Math.random()*free.length)|0];
-  let type='normal'; const r=Math.random();
-  const badChance={easy:0.10,normal:0.16,hard:0.24}[settings.diff];
-  if(r<badChance) type='bad'; else if(r<badChance+0.09) type='gold';
-
-  const built = (type==='bad') ? makeBeetle() : makeGrub(type==='gold');
-  const c = built.group;
-  const up = b.normal.clone();
-  // pencher vers le haut ; si normale ~ verticale (sol/plafond), pencher vers le joueur
-  let fwd = new THREE.Vector3(0,1,0);
-  fwd.addScaledVector(up, -fwd.dot(up));
-  if(fwd.lengthSq() < 1e-4){
-    fwd.set(0,1.25,0).sub(b.pos);
-    fwd.addScaledVector(up, -fwd.dot(up));
-    if(fwd.lengthSq()<1e-4) fwd.set(0,0,1).addScaledVector(up,-up.z);
-  }
-  fwd.normalize();
-  const right = new THREE.Vector3().crossVectors(up,fwd).normalize();
-  fwd.crossVectors(right,up).normalize();
-  c.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,up,fwd));
-  c.position.copy(b.pos);
-  FIELD.add(c);
-
-  const upd={easy:[1.1,1.7],normal:[0.85,1.35],hard:[0.6,1.0]}[settings.diff];
-  const life=upd[0]+Math.random()*(upd[1]-upd[0]);
-  const obj={group:c, burrow:b, type, phase:'rise', tt:0, riseT:0.24, holdT:life, sinkT:0.22,
-             hit:false, wig:Math.random()*6, L:built.L, hitParts:built.hitParts, wigParts:built.wigParts, gold:type==='gold'};
-  b.occupied=obj; active.push(obj);
-}
-function popCreature(obj, smashed){
-  if(smashed){ obj.hitParts[0].getWorldPosition(tmp2); burst(tmp2, obj.type==='bad'?0xff4d5e:(obj.type==='gold'?0xffd54a:0xb8f34d)); }
-  FIELD.remove(obj.group);
-  obj.burrow.occupied = null;
-  const i = active.indexOf(obj); if(i>=0) active.splice(i,1);
-}
-
-/* ------------------------------------------------------------ Particules */
-const partGeo = new THREE.SphereGeometry(0.014, 6, 6);
-const particles = [];
-function burst(pos, color){
-  const mat = new THREE.MeshBasicMaterial({color});
-  for(let i=0;i<12;i++){
-    const p = new THREE.Mesh(partGeo, mat);
-    p.position.copy(pos);
-    const v = new THREE.Vector3((Math.random()-.5),(Math.random()*.8+.2),(Math.random()-.5)).multiplyScalar(1.5);
-    scene.add(p); particles.push({mesh:p, v, life:0.5});
-  }
-}
-function updateParticles(dt){
-  for(let i=particles.length-1;i>=0;i--){
-    const pt = particles[i];
-    pt.life -= dt; pt.v.y -= 3*dt;
-    pt.mesh.position.addScaledVector(pt.v, dt);
-    pt.mesh.scale.multiplyScalar(1 - dt*2);
-    if(pt.life<=0){ scene.remove(pt.mesh); particles.splice(i,1); }
-  }
-}
-
-/* ------------------------------------------------------------ Points flottants (+1 / +5 / −3) */
-const popups = [];
-function spawnPopup(pos, text, color){
-  const cv=document.createElement('canvas'); cv.width=256; cv.height=128;
-  const c=cv.getContext('2d');
-  c.textAlign='center'; c.font='900 96px Segoe UI, sans-serif';
-  c.lineWidth=10; c.strokeStyle='rgba(0,0,0,.55)'; c.strokeText(text,128,92);
-  c.fillStyle=color; c.fillText(text,128,92);
-  const tex=new THREE.CanvasTexture(cv);
-  const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, depthTest:false});
-  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.09), mat);
-  mesh.position.copy(pos); mesh.renderOrder=999;
-  scene.add(mesh);
-  popups.push({mesh, mat, life:0.85});
-}
-function updatePopups(dt, viewQuat){
-  for(let i=popups.length-1;i>=0;i--){
-    const u=popups[i]; u.life-=dt;
-    u.mesh.position.y += dt*0.4;
-    u.mesh.quaternion.copy(viewQuat);
-    u.mat.opacity = Math.max(0, u.life/0.85);
-    if(u.life<=0){ scene.remove(u.mesh); popups.splice(i,1); }
-  }
-}
-
-/* ------------------------------------------------------------ Panneaux */
-function makePanel(w, h, px){
-  const canvas = document.createElement('canvas');
-  canvas.width = px; canvas.height = Math.round(px*h/w);
-  const ctx = canvas.getContext('2d');
-  const tex = new THREE.CanvasTexture(canvas); tex.anisotropy = 4;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:tex, transparent:true}));
-  return {mesh, ctx, canvas, tex};
-}
-function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-
-const hud = makePanel(0.9, 0.26, 900);
-hud.mesh.position.set(0, 2.02, -0.55); scene.add(hud.mesh);
-function drawHUD(score, combo, time){
-  const c = hud.ctx, W=hud.canvas.width, H=hud.canvas.height;
-  c.clearRect(0,0,W,H);
-  c.fillStyle='rgba(19,24,38,.86)'; rr(c,0,0,W,H,26); c.fill();
-  c.strokeStyle='rgba(46,230,214,.5)'; c.lineWidth=3; rr(c,2,2,W-4,H-4,24); c.stroke();
-  const cell=(label,val,x,col)=>{
-    c.textAlign='center';
-    c.fillStyle='#8b93a7'; c.font='700 26px Segoe UI, sans-serif'; c.fillText(label, x, 54);
-    c.fillStyle=col; c.font='900 74px Segoe UI, sans-serif'; c.fillText(val, x, 132);
-  };
-  cell(t('score'), String(score), W*0.2, '#f4f6fb');
-  cell(t('combo'), 'x'+combo, W*0.5, '#b8f34d');
-  cell(t('time2'), Math.max(0,Math.ceil(time))+'s', W*0.8, time<=5?'#ff4d5e':'#2ee6d6');
-  hud.tex.needsUpdate = true;
-}
-
-const board = makePanel(0.9, 0.62, 900);
-board.mesh.position.set(0, 1.42, -0.9); scene.add(board.mesh);
-board.mesh.visible = false;
-function drawCenter(lines){
-  const c = board.ctx, W=board.canvas.width, H=board.canvas.height;
-  c.clearRect(0,0,W,H);
-  c.fillStyle='rgba(15,20,34,.9)'; rr(c,0,0,W,H,34); c.fill();
-  c.strokeStyle='rgba(139,108,255,.6)'; c.lineWidth=4; rr(c,3,3,W-6,H-6,30); c.stroke();
-  c.textAlign='center';
-  let y = 120;
-  for(const ln of lines){
-    c.fillStyle = ln.col||'#f4f6fb';
-    c.font = (ln.w||'900')+' '+(ln.s||70)+'px Segoe UI, sans-serif';
-    for(const p of ln.text.split('\n')){ c.fillText(p, W/2, y); y += (ln.s||70)*1.02; }
-    y += ln.gap||14;
-  }
-  board.tex.needsUpdate = true;
-}
-
-const buttons = [];
-function paintButton(p, color, label){
-  const c=p.ctx, W=p.canvas.width, H=p.canvas.height;
-  c.clearRect(0,0,W,H);
-  c.fillStyle='rgba(19,24,38,.95)'; rr(c,0,0,W,H,40); c.fill();
-  c.lineWidth=5; c.strokeStyle=color; rr(c,3,3,W-6,H-6,36); c.stroke();
-  c.fillStyle=color; c.textAlign='center'; c.font='900 60px Segoe UI, sans-serif';
-  c.fillText(label, W/2, H/2+21); p.tex.needsUpdate=true;
-}
-function makeButton(label, color, onTrigger){
-  const p = makePanel(0.34, 0.14, 360);
-  paintButton(p, color, label);
-  scene.add(p.mesh); p.mesh.visible=false;
-  const b = {mesh:p.mesh, onTrigger, cd:0, color, panel:p};
-  buttons.push(b); return b;
-}
-function relabel(b, label){ paintButton(b.panel, b.color, label); }
-let btnStart=null, btnAgain=null, btnMenu=null;
-
-/* ------------------------------------------------------------ Audio */
-let actx=null;
-function audio(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
-function beep(freq, dur, type, gain, slideTo){
+btn.onclick = async ()=>{
   try{
-    const a=audio(), o=a.createOscillator(), g=a.createGain();
-    o.type=type||'sine'; o.frequency.value=freq;
-    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, a.currentTime+dur);
-    g.gain.setValueAtTime(gain||0.15, a.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime+dur);
-    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur);
-  }catch(e){}
-}
-const sfx = {
-  hit:()=>beep(420,0.12,'square',0.16,760),
-  gold:()=>{ beep(660,0.1,'triangle',0.18,990); setTimeout(()=>beep(990,0.12,'triangle',0.16,1320),70); },
-  bad:()=>beep(150,0.22,'sawtooth',0.2,60),
-  miss:()=>beep(200,0.12,'sine',0.08,140),
-  count:()=>beep(520,0.1,'sine',0.14),
-  go:()=>beep(880,0.25,'triangle',0.2,1200),
-  end:()=>{ beep(600,0.15,'triangle',0.16,400); setTimeout(()=>beep(400,0.3,'sine',0.16,200),150); }
-};
-let voiceOK = 'speechSynthesis' in window;
-function speak(txt){
-  if(!voiceOK) return;
-  try{ const u=new SpeechSynthesisUtterance(txt); u.lang= lang==='fr'?'fr-FR':'en-US'; u.rate=1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
-}
-
-/* ------------------------------------------------------------ État */
-let state='idle';
-let score=0, combo=0, best=0, timeLeft=0, hits=0, misses=0, spawnTimer=0, countT=0, countN=3;
-let scanT=0, scanBest=[];
-const tmp = new THREE.Vector3();
-const tmp2 = new THREE.Vector3();
-const _vp = new THREE.Vector3();
-const _vq = new THREE.Quaternion();
-
-function resetGame(){
-  active.slice().forEach(o=>popCreature(o,false));
-  particles.slice().forEach(p=> scene.remove(p.mesh)); particles.length=0;
-  popups.slice().forEach(u=> scene.remove(u.mesh)); popups.length=0;
-  score=0; combo=0; hits=0; misses=0; timeLeft=settings.dur;
-}
-function showButtons(list){
-  buttons.forEach(b=>b.mesh.visible=false);
-  list.forEach(b=>{ if(b){ b.mesh.visible=true; b.cd=0.5; } });
-}
-function buildInVRButtons(){
-  if(btnStart) return;
-  btnStart = makeButton('START', '#b8f34d', ()=>{ if(state==='idle') startScan(); });
-  btnStart.mesh.position.set(0,1.16,-0.85);
-  btnAgain = makeButton(t('again'), '#2ee6d6', ()=>{ startCountdown(); });
-  btnAgain.mesh.position.set(-0.2,1.02,-0.85);
-  btnMenu  = makeButton(t('menu'),  '#8b93a7', ()=>{ if(xrSession) xrSession.end(); });
-  btnMenu.mesh.position.set(0.2,1.02,-0.85);
-}
-function showStartScreen(){
-  state='idle'; buildInVRButtons();
-  relabel(btnAgain, t('again')); relabel(btnMenu, t('menu'));
-  drawCenter([
-    {text:'NEON ARCADE', s:74, col:'#b8f34d', gap:6},
-    {text:'Tape-Chenille', s:40, col:'#8b93a7', gap:16},
-    {text:t('start'), s:52, col:'#f4f6fb'}
-  ]);
-  board.mesh.visible=true; showButtons([btnStart]);
-}
-function startScan(){
-  if(settings.mode==='ar'){
-    state='scan'; scanT=0; scanBest=[];
-    board.mesh.visible=true; showButtons([]);
-    drawCenter([{text:'NEON ARCADE', s:60, col:'#b8f34d', gap:12},{text:t('scanning'), s:44, col:'#2ee6d6'}]);
-  } else startCountdown();
-}
-function startCountdown(){
-  resetGame();
-  board.mesh.visible=true; showButtons([]);
-  state='count'; countT=0; countN=3;
-  drawCenter([{text:'3', s:220, col:'#2ee6d6'}]);
-  sfx.count(); speak(lang==='fr'?'Prêt':'Ready');
-}
-function startPlay(){
-  state='play'; board.mesh.visible=false; showButtons([]);
-  timeLeft=settings.dur; spawnTimer=0.6;
-  sfx.go(); speak(t('go'));
-}
-function endGame(){
-  state='over';
-  active.slice().forEach(o=>popCreature(o,false));
-  best = getBest();
-  const record = score>best;
-  if(record) setBest(score);
-  const acc = hits+misses>0 ? Math.round(hits*100/(hits+misses)) : 0;
-  drawCenter([
-    {text:t('result'), s:56, col:'#8b93a7', gap:6},
-    {text:String(score), s:150, col:'#b8f34d', gap:10},
-    record? {text:t('newbest'), s:44, col:'#ffd54a', gap:14}
-           : {text:t('best')+' '+Math.max(best,score), s:34, col:'#8b93a7', gap:14},
-    {text:t('hitsL')+' '+hits+'   ·   '+t('accL')+' '+acc+'%', s:34, col:'#8b93a7'}
-  ]);
-  board.mesh.visible=true; showButtons([btnAgain, btnMenu]);
-  sfx.end(); speak(t('timeUp'));
-}
-
-/* ------------------------------------------------------------ Boucle */
-const clock = new THREE.Clock();
-function difficultyRate(){
-  const base = {easy:1.15, normal:0.9, hard:0.62}[settings.diff];
-  const prog = 1 - (timeLeft/settings.dur)*0.45;
-  return base * (1-0.35*prog+0.001);
-}
-function checkHits(){
-  for(let i=0;i<2;i++){
-    const h = malletHeads[i]; if(!h) continue;
-    h.getWorldPosition(tmp);
-    for(const b of buttons){
-      if(!b.mesh.visible || b.cd>0) continue;
-      if(tmp.distanceTo(b.mesh.position) < 0.13){ b.cd=0.6; b.onTrigger(); }
-    }
-    if(state!=='play') continue;
-    for(const o of active){
-      if(o.hit || o.phase==='sink') continue;
-      let hitIt=false;
-      for(const part of o.hitParts){ part.getWorldPosition(tmp2); if(tmp.distanceTo(tmp2) < HIT_R){ hitIt=true; break; } }
-      if(hitIt) registerHit(o);
-    }
-  }
-}
-function registerHit(o){
-  o.hit=true;
-  o.hitParts[0].getWorldPosition(tmp2); const hp=tmp2.clone();
-  if(o.type==='bad'){
-    combo=0; score=Math.max(0,score-3); misses++;
-    sfx.bad(); o.phase='sink'; o.tt=0; burst(hp,0xff4d5e); spawnPopup(hp,'-3','#ff5a68'); return;
-  }
-  hits++; combo++;
-  const mult = 1 + Math.floor(combo/5);
-  const pts = (o.type==='gold'? 5 : 1) * mult;
-  score += pts;
-  if(o.type==='gold') sfx.gold(); else sfx.hit();
-  spawnPopup(hp, '+'+pts, o.type==='gold'?'#ffd54a':'#eaffd2');
-  popCreature(o, true);
-}
-function updateCreatures(dt){
-  const time = clock.elapsedTime;
-  for(const o of active.slice()){
-    o.tt += dt;
-    const b = o.burrow;
-    let rise=0;
-    if(o.phase==='rise'){ rise=Math.min(1,o.tt/o.riseT); if(rise>=1){ o.phase='hold'; o.tt=0; } }
-    else if(o.phase==='hold'){ rise=1; if(o.tt>=o.holdT){ o.phase='sink'; o.tt=0; if(!o.hit && o.type!=='bad'){ combo=0; misses++; sfx.miss(); } } }
-    else { rise=Math.max(0,1-o.tt/o.sinkT); if(o.tt>=o.sinkT){ popCreature(o,false); continue; } }
-    const e = rise*rise*(3-2*rise);
-    o.group.position.copy(b.pos).add(b.normal.clone().multiplyScalar(THREE.MathUtils.lerp(-(o.L+0.08), 0.02, e)));
-    for(const p of o.wigParts){
-      const s=p.userData.s;
-      p.position.x = p.userData.x0 + 0.014*Math.sin(s*6 - time*6.5 + o.wig)*e;
-      p.position.y = p.userData.y0 + 0.006*Math.cos(s*6 - time*6.5 + o.wig)*e;
-    }
-    if(o.gold) o.group.scale.setScalar(1 + 0.05*Math.sin(time*9 + o.wig));
-  }
-}
-function render(frame){
-  const dt = Math.min(clock.getDelta(), 0.05);
-  const time = clock.elapsedTime;
-  updateParticles(dt);
-  if(envGroup.visible) updateFireflies(time);
-  for(const b of buttons){ if(b.cd>0) b.cd-=dt; }
-
-  if(state==='scan'){
-    scanT += dt;
-    const spots = sampleSpots(frame);
-    if(spots.length > scanBest.length) scanBest = spots;
-    if(scanT >= 1.8){
-      if(scanBest.length >= 6) buildPlaneBurrows(scanBest); else buildArcBurrows();
-      startCountdown();
-    }
-  } else if(state==='count'){
-    countT += dt;
-    if(countT>=0.85){
-      countT=0; countN--;
-      if(countN>0){ drawCenter([{text:String(countN), s:220, col:'#2ee6d6'}]); sfx.count(); }
-      else { drawCenter([{text:t('go'), s:200, col:'#b8f34d'}]); startPlay(); }
-    }
-  } else if(state==='play'){
-    timeLeft -= dt; spawnTimer -= dt;
-    updateCreatures(dt);
-    if(spawnTimer<=0){
-      spawn();
-      const maxConc = {easy:2, normal:3, hard:4}[settings.diff];
-      if(active.length<maxConc && Math.random()<0.4) spawn();
-      spawnTimer = difficultyRate();
-    }
-    checkHits();
-    drawHUD(score, combo, timeLeft);
-    if(timeLeft<=0) endGame();
-  } else {
-    checkHits();
-  }
-
-  if(renderer.xr.isPresenting){ const xc=renderer.xr.getCamera(); xc.getWorldQuaternion(_vq); }
-  else camera.getWorldQuaternion(_vq);
-  updatePopups(dt, _vq);
-
-  renderer.render(scene, camera);
-}
-renderer.setAnimationLoop((t,frame)=>render(frame));
-
-/* ------------------------------------------------------------ Sessions */
-let vrReady=false, arReady=false, xrSession=null, boundedSpace=null;
-async function enterXR(mode){
-  try{
-    audio().resume();
-    const sessionMode = mode==='ar' ? 'immersive-ar' : 'immersive-vr';
-    const opts = mode==='ar'
-      ? {requiredFeatures:['local-floor'], optionalFeatures:['plane-detection','anchors','hit-test','hand-tracking','bounded-floor']}
-      : {optionalFeatures:['local-floor','bounded-floor','hand-tracking']};
-    xrSession = await navigator.xr.requestSession(sessionMode, opts);
-    renderer.xr.setReferenceSpaceType('local-floor');
-    await renderer.xr.setSession(xrSession);
-    boundedSpace = (mode==='ar') ? await xrSession.requestReferenceSpace('bounded-floor').catch(()=>null) : null;
-    setEnvironment(mode);
-    clearBurrows();
-    if(mode==='vr') buildArcBurrows();
+    engine.lang = lang;
+    engine.settings.diff = settings.diff;
+    engine.settings.dur = settings.dur;
+    await engine.enter(settings.mode);
     overlay.classList.add('hidden');
     document.getElementById('lang').style.display='none';
-    showStartScreen();
-    xrSession.addEventListener('end', ()=>{
-      overlay.classList.remove('hidden');
-      document.getElementById('lang').style.display='';
-      state='idle'; xrSession=null; boundedSpace=null;
-      active.slice().forEach(o=>popCreature(o,false));
-      popups.slice().forEach(u=> scene.remove(u.mesh)); popups.length=0;
-      board.mesh.visible=false; buttons.forEach(b=>b.mesh.visible=false);
-      setEnvironment('vr');
-      if(voiceOK) try{ speechSynthesis.cancel(); }catch(e){}
-      renderOverlay();
-    });
-  }catch(e){ statusEl.textContent = t('err') + e.message; }
-}
+  }catch(e){ statusEl.textContent = (lang==='fr'?'Session impossible : ':'Cannot start session: ') + e.message; }
+};
+engine.onExit = ()=>{
+  overlay.classList.remove('hidden');
+  document.getElementById('lang').style.display='';
+  renderMenu();
+};
 
-if(navigator.xr){
-  Promise.all([
-    navigator.xr.isSessionSupported('immersive-vr').catch(()=>false),
-    navigator.xr.isSessionSupported('immersive-ar').catch(()=>false)
-  ]).then(([v,a])=>{
-    vrReady=v; arReady=a;
-    if(!a){
-      const arBtn=document.querySelector('#mode button[data-v="ar"]');
-      if(arBtn){ arBtn.disabled=true; arBtn.style.opacity=.4; }
-    }
-    btn.onclick=()=>enterXR(settings.mode);
-    renderOverlay();
-  });
-} else renderOverlay();
-
-let previewA=0;
-setInterval(()=>{ if(!xrSession){ previewA+=0.003; camera.position.x=Math.sin(previewA)*0.5; camera.lookAt(0,1.4,-0.4); } },16);
-
-addEventListener('resize', ()=>{
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
+engine.detect().then(()=>{
+  if(!engine.arReady){
+    const arBtn=document.querySelector('#mode button[data-v="ar"]');
+    if(arBtn){ arBtn.disabled=true; arBtn.style.opacity=.4; }
+  }
+  renderMenu();
 });
-renderOverlay();
+renderMenu();
 </script>
 </body>
 </html>
