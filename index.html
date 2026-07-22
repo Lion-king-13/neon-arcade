@@ -56,6 +56,13 @@
   #lang{position:fixed;top:16px;right:18px;z-index:11;color:var(--steel);font-size:.82rem;font-weight:700}
   #lang a{color:var(--steel);cursor:pointer;padding:0 4px}
   #lang a.on{color:var(--cyan)}
+  .idrow{margin:16px auto 0;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+  input{background:#121826;border:1px solid #2a3446;color:var(--white);border-radius:10px;padding:8px 12px;font:inherit;font-size:.9rem;outline:none;width:160px}
+  input:focus{border-color:var(--cyan)}
+  #vsBox{margin:12px auto 0;max-width:440px;color:var(--steel);font-size:.85rem}
+  #vsBox summary{cursor:pointer;font-weight:700}
+  .vsnames{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .vsnames input{width:100%}
 </style>
 </head>
 <body>
@@ -100,6 +107,20 @@
     </div>
   </div>
 
+  <div class="idrow">
+    <label class="lbl" id="lblPseudo"></label>
+    <input id="pseudo" maxlength="10" autocomplete="off" spellcheck="false">
+  </div>
+  <details id="vsBox">
+    <summary id="lblVsNames"></summary>
+    <div class="vsnames">
+      <input id="vs0" maxlength="10" autocomplete="off" spellcheck="false">
+      <input id="vs1" maxlength="10" autocomplete="off" spellcheck="false">
+      <input id="vs2" maxlength="10" autocomplete="off" spellcheck="false">
+      <input id="vs3" maxlength="10" autocomplete="off" spellcheck="false">
+    </div>
+  </details>
+
   <button id="vrbtn" disabled></button>
   <div class="how" id="how"></div>
   <div id="status"></div>
@@ -125,6 +146,7 @@ const T = {
     mode:"Mode", modeVR:"Immersion", modeAR:"Passthrough",
     diff:"Difficulté", time:"Durée", easy:"Tranquille", normal:"Normal", hard:"Intense",
     decor:"Décor", dAuto:"Auto", dForest:"Forêt", dMeadow:"Prairie", dCarnival:"Foraine",
+    pseudo:"Pseudo", vsNames:"Noms des joueurs (mode VS)", player:"Joueur",
     enter:"Entrer en immersion", enterAR:"Entrer en réalité mixte", noVR:"Casque VR requis",
     needHeadset:"Ouvre cette page dans le navigateur du Meta Quest 3, puis appuie sur le bouton.",
     arNote:"Passthrough : le jeu utilise tes vrais murs, sol et plafond, dans ta zone Guardian.",
@@ -135,6 +157,7 @@ const T = {
     mode:"Mode", modeVR:"Immersive", modeAR:"Passthrough",
     diff:"Difficulty", time:"Duration", easy:"Chill", normal:"Normal", hard:"Intense",
     decor:"Scenery", dAuto:"Auto", dForest:"Forest", dMeadow:"Meadow", dCarnival:"Fair",
+    pseudo:"Nickname", vsNames:"Player names (VS mode)", player:"Player",
     enter:"Enter immersive", enterAR:"Enter mixed reality", noVR:"VR headset required",
     needHeadset:"Open this page in the Meta Quest 3 browser, then press the button.",
     arNote:"Passthrough: the game uses your real walls, floor and ceiling, inside your Guardian area.",
@@ -152,7 +175,13 @@ engine.setHub(hub);
 const overlay = document.getElementById('overlay');
 const btn = document.getElementById('vrbtn');
 const statusEl = document.getElementById('status');
-const settings = { mode:'vr', diff:'normal', dur:60, decor:'auto' };
+const settings = { mode:'vr', diff:'normal', dur:60, decor:'auto', pseudo:'', vsNames:['','','',''] };
+try{
+  settings.pseudo = localStorage.getItem('neonarcade_pseudo') || '';
+  settings.vsNames = JSON.parse(localStorage.getItem('neonarcade_vsnames') || '["","","",""]');
+}catch(e){}
+const pseudoEl=document.getElementById('pseudo'); if(pseudoEl){ pseudoEl.value=settings.pseudo; pseudoEl.addEventListener('input',()=>{ settings.pseudo=pseudoEl.value; try{localStorage.setItem('neonarcade_pseudo',pseudoEl.value);}catch(e){} }); }
+for(let i=0;i<4;i++){ const el=document.getElementById('vs'+i); if(el){ el.value=settings.vsNames[i]||''; el.addEventListener('input',()=>{ settings.vsNames[i]=el.value; try{localStorage.setItem('neonarcade_vsnames',JSON.stringify(settings.vsNames));}catch(e){} }); } }
 
 function wireSeg(id, key, cast, cb){
   const box = document.getElementById(id);
@@ -184,6 +213,10 @@ function renderMenu(){
   document.getElementById('lblDiff').textContent = t('diff');
   document.getElementById('lblTime').textContent = t('time');
   document.getElementById('lblDecor').textContent = t('decor');
+  document.getElementById('lblPseudo').textContent = t('pseudo');
+  document.getElementById('lblVsNames').textContent = t('vsNames');
+  if(pseudoEl) pseudoEl.placeholder = t('pseudo');
+  for(let i=0;i<4;i++){ const el=document.getElementById('vs'+i); if(el) el.placeholder = t('player')+' '+(i+1); }
   const dc=document.getElementById('decor').children; dc[0].textContent=t('dAuto'); dc[1].textContent=t('dForest'); dc[2].textContent=t('dMeadow'); dc[3].textContent=t('dCarnival');
   const md=document.getElementById('mode').children; md[0].textContent=t('modeVR'); md[1].textContent=t('modeAR');
   const df=document.getElementById('diff').children; df[0].textContent=t('easy'); df[1].textContent=t('normal'); df[2].textContent=t('hard');
@@ -200,6 +233,8 @@ btn.onclick = async ()=>{
     engine.settings.diff = settings.diff;
     engine.settings.dur = settings.dur;
     engine.settings.decor = settings.decor;
+    engine.settings.pseudo = settings.pseudo;
+    engine.settings.vsNames = settings.vsNames;
     await engine.enter(settings.mode);
     overlay.classList.add('hidden');
     document.getElementById('lang').style.display='none';

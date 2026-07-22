@@ -55,6 +55,7 @@ export class Hub {
     if(special){
       items=e.games.filter(g=>g.special).map(g=>({ label:(g.name[e.lang]||g.name.fr), color:g.color||'#ffd54a', locked:false, action:()=>e.selectGame(g) }));
       items.push({label:e.t('help'), color:'#4db8ff', action:()=>e.showHelp('special')});
+      items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('special')});
       items.push({label:e.t('back'), color:'#8b93a7', action:()=>{ this._view='base'; this.render(); }});
     } else {
       items=e.games.filter(g=>!g.special).map(g=>({
@@ -67,6 +68,7 @@ export class Hub {
       }
       items.push({label:e.t('vs'), color:'#b8f34d', action:()=>e.startVS()});
       items.push({label:e.t('help'), color:'#4db8ff', action:()=>e.showHelp('base')});
+      items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('base')});
       items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
     }
     const n=items.length;

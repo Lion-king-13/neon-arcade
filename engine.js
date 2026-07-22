@@ -6,14 +6,14 @@ const BASE_STRINGS = {
        go:"GO", timeUp:"TEMPS !", result:"TERMINÉ", newbest:"NOUVEAU RECORD !", hitsL:"Touchées", accL:"Précision",
        best:"Meilleur", scanning:"Analyse de la zone…", choose:"Choisis un jeu", ready:"Prêt",
        pause:"PAUSE", resume:"REPRENDRE", restart:"RECOMMENCER",
-       vs:"VS 2 JOUEURS", player:"Joueur", round:"Manche", start:"COMMENCER", winner:"gagne !", tie:"Égalité !", vsAgain:"REVANCHE",
-       special:"MODES SPÉCIAUX", specialTitle:"Modes Spéciaux", back:"RETOUR", help:"AIDE" },
+       vs:"VS 2-4", player:"Joueur", round:"Manche", start:"COMMENCER", winner:"gagne !", tie:"Égalité !", vsAgain:"REVANCHE",
+       special:"MODES SPÉCIAUX", specialTitle:"Modes Spéciaux", back:"RETOUR", help:"AIDE", scores:"SCORES" },
   en:{ score:"SCORE", combo:"COMBO", time2:"TIME", again:"PLAY AGAIN", menu:"MENU", quit:"QUIT", play:"PLAY",
        go:"GO", timeUp:"TIME!", result:"FINISHED", newbest:"NEW RECORD!", hitsL:"Hits", accL:"Accuracy",
        best:"Best", scanning:"Scanning your area…", choose:"Choose a game", ready:"Ready",
        pause:"PAUSED", resume:"RESUME", restart:"RESTART",
-       vs:"VS 2 PLAYERS", player:"Player", round:"Round", start:"START", winner:"wins!", tie:"Tie!", vsAgain:"REMATCH",
-       special:"SPECIAL MODES", specialTitle:"Special Modes", back:"BACK", help:"HELP" }
+       vs:"VS 2-4", player:"Player", round:"Round", start:"START", winner:"wins!", tie:"Tie!", vsAgain:"REMATCH",
+       special:"SPECIAL MODES", specialTitle:"Special Modes", back:"BACK", help:"HELP", scores:"SCORES" }
 };
 
 export class Engine {
@@ -263,19 +263,19 @@ export class Engine {
     const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
     const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
-    // manche télescopique
+    const R=0.11, cy=R, cz=-0.33;   // centre du cerceau ; bas du cerceau ≈ (0,0,-0.33)
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
     const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.15,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
-    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.15,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.24; g.add(seg2);
-    // cerceau centré sur l'axe (perpendiculaire au manche = dans son prolongement)
-    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.008,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3}));
-    hoop.position.z=-0.35; g.add(hoop);
-    // poche maillée droit devant, le long de l'axe
-    const depth=0.16;
-    const fill=new T.Mesh(new T.ConeGeometry(0.11,depth,24,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.z=-0.35-depth/2; g.add(fill);
-    const mesh=new T.Mesh(new T.ConeGeometry(0.108,depth,24,5,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55})); mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.35-depth/2; g.add(mesh);
-    const bottom=new T.Mesh(new T.CircleGeometry(0.028,16), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5, side:T.DoubleSide})); bottom.position.z=-0.35-depth; g.add(bottom);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.36); g.add(cp); g.userData.cp=cp;
+    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.17,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.245; g.add(seg2);
+    // cerceau vertical (face avant), décalé vers le haut : le manche arrive à son BAS
+    const hoop=new T.Mesh(new T.TorusGeometry(R,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.9, roughness:.4, metalness:.3}));
+    hoop.position.set(0,cy,cz); g.add(hoop);
+    // poche maillée peu profonde, droit devant
+    const depth=0.13;
+    const fill=new T.Mesh(new T.ConeGeometry(R,depth,24,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.08, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.set(0,cy,cz-depth/2); g.add(fill);
+    const mesh=new T.Mesh(new T.ConeGeometry(R*0.98,depth,24,4,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); mesh.rotation.x=-Math.PI/2; mesh.position.set(0,cy,cz-depth/2); g.add(mesh);
+    const bottom=new T.Mesh(new T.CircleGeometry(0.028,16), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5, side:T.DoubleSide})); bottom.position.set(0,cy,cz-depth); g.add(bottom);
+    const cp=new T.Object3D(); cp.position.set(0,cy,cz); g.add(cp); g.userData.cp=cp;
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -543,6 +543,37 @@ export class Engine {
     }
     this.board.tex.needsUpdate=true;
   }
+  /* ---------- Tableau des scores (local) ---------- */
+  _lbKey(id){ return 'neonarcade_lb_'+id+'_'+this.settings.diff+'_'+this.settings.dur; }
+  _recordScore(id){
+    let lb=[]; try{ lb=JSON.parse(localStorage.getItem(this._lbKey(id))||'[]'); }catch(e){ lb=[]; }
+    const name=((this.settings.pseudo||'—')+'').slice(0,10);
+    lb.push({n:name, s:this.score}); lb.sort((a,b)=>b.s-a.s); if(lb.length>5) lb.length=5;
+    try{ localStorage.setItem(this._lbKey(id), JSON.stringify(lb)); }catch(e){}
+    return lb;
+  }
+  _topScore(id){ try{ const lb=JSON.parse(localStorage.getItem(this._lbKey(id))||'[]'); return lb[0]||null; }catch(e){ return null; } }
+  showScores(scope){
+    this.state='scores'; this.showHUD(false); this.hub?.hide?.(); this.clearField(); this.clearPopups();
+    this.useEnvironment('hub');
+    const games=this.games.filter(scope==='special'? g=>g.special : g=>!g.special);
+    const c=this.board.ctx, W=this.board.canvas.width, H=this.board.canvas.height; c.clearRect(0,0,W,H);
+    c.fillStyle='rgba(15,20,34,.92)'; this._rr(c,0,0,W,H,34); c.fill();
+    c.strokeStyle='rgba(255,213,74,.6)'; c.lineWidth=4; this._rr(c,3,3,W-6,H-6,30); c.stroke();
+    c.textAlign='center'; c.fillStyle='#ffd54a'; c.font='900 46px Segoe UI, sans-serif';
+    c.fillText(this.t('scores')+'  ·  '+this.settings.diff+' '+this.settings.dur+'s', W/2, 62);
+    c.textAlign='left'; let y=118; const lh=Math.min(52,(H-150)/Math.max(1,games.length));
+    for(const g of games){
+      const name=(g.name[this.lang]||g.name.fr); const top=this._topScore(g.id);
+      c.font='800 30px Segoe UI, sans-serif'; c.fillStyle=g.color||'#f4f6fb'; c.fillText(name, 54, y);
+      c.font='700 30px Segoe UI, sans-serif'; c.textAlign='right'; c.fillStyle='#f4f6fb';
+      c.fillText(top? (top.s+'  ('+top.n+')') : '—', W-54, y); c.textAlign='left';
+      y+=lh;
+    }
+    this.board.tex.needsUpdate=true;
+    this.showBoard(true);
+    this.setButtons([{label:this.t('back'), color:'#8b93a7', pos:new THREE.Vector3(0,1.0,-0.85), onTrigger:()=> scope==='special'?this.showSpecialHub():this.showHub()}]);
+  }
   selectGame(game){
     this.hub?.hide?.();
     this.currentGame=game; game.init?.(this); this.clearField(); this.sfx.pick();
@@ -575,16 +606,17 @@ export class Engine {
       this.vs.scores[this.vs.player]+=this.score; this.state='over'; this.showHUD(false); this.sfx.end(); this._vsAdvance(); return;
     }
     this.state='over'; this.showHUD(false);
-    const g=this.currentGame; const bk='neonarcade_'+g.id+'_'+this.settings.diff+'_'+this.settings.dur;
-    const prev=parseInt(localStorage.getItem(bk)||'0',10); const record=this.score>prev;
-    if(record){ try{ localStorage.setItem(bk,String(this.score)); }catch(e){} }
+    const g=this.currentGame;
+    const lb=this._recordScore(g.id);
+    const record = lb.length>0 && lb[0].s===this.score && lb.filter(e=>e.s===this.score).length===1 && this.score>0;
     const acc=this.hits+this.misses>0?Math.round(this.hits*100/(this.hits+this.misses)):0;
-    this.drawBoard([
-      {text:this.t('result'),s:56,col:'#8b93a7',gap:6},
-      {text:String(this.score),s:150,col:'#b8f34d',gap:10},
-      record?{text:this.t('newbest'),s:44,col:'#ffd54a',gap:14}:{text:this.t('best')+' '+Math.max(prev,this.score),s:34,col:'#8b93a7',gap:14},
-      {text:this.t('hitsL')+' '+this.hits+'   ·   '+this.t('accL')+' '+acc+'%',s:34,col:'#8b93a7'}
-    ]);
+    const lines=[
+      {text:this.t('result'),s:52,col:'#8b93a7',gap:4},
+      {text:String(this.score),s:130,col:'#b8f34d',gap:8},
+      record?{text:this.t('newbest'),s:40,col:'#ffd54a',gap:8}:{text:this.t('hitsL')+' '+this.hits+'  ·  '+this.t('accL')+' '+acc+'%',s:30,col:'#8b93a7',gap:8}
+    ];
+    lb.slice(0,3).forEach((e,idx)=>{ lines.push({text:(idx+1)+'.  '+e.n+'   '+e.s, s:30, col:idx===0?'#ffd54a':'#c7cede', gap:2}); });
+    this.drawBoard(lines);
     this.showBoard(true);
     const backHub=()=> (this.currentGame&&this.currentGame.special)?this.showSpecialHub():this.showHub();
     this.setButtons([
@@ -616,6 +648,7 @@ export class Engine {
     this._vsReady();
   }
   _vsColor(p){ return ['#2ee6d6','#ff4d5e','#b8f34d','#8b6cff'][p%4]; }
+  _vsName(p){ const nm=this.settings.vsNames&&this.settings.vsNames[p]; return (nm&&(''+nm).trim())?(''+nm).trim().slice(0,10):(this.t('player')+' '+(p+1)); }
   _vsReady(){
     this.state='vsready'; this.showHUD(false); this.clearField(); this.clearPopups();
     const g=this.vs.rounds[this.vs.idx], p=this.vs.player;
@@ -624,7 +657,7 @@ export class Engine {
     this.useEnvironment(this.settings.mode==='ar'?'gameAR':'gameVR');
     this.drawBoard([
       {text:this.t('vs'),s:40,col:'#ffd54a',gap:8},
-      {text:this.t('player')+' '+(p+1),s:88,col:this._vsColor(p),gap:8},
+      {text:this._vsName(p),s:82,col:this._vsColor(p),gap:8},
       {text:(g.name[this.lang]||g.name.fr),s:44,col:'#f4f6fb',gap:6},
       {text:this.t('round')+' '+(this.vs.idx+1)+'/'+this.vs.n,s:32,col:'#8b93a7'}
     ]);
@@ -633,7 +666,7 @@ export class Engine {
       {label:this.t('start'),color:'#b8f34d',pos:new THREE.Vector3(-0.2,1.02,-0.85),onTrigger:()=>this._vsBeginTurn()},
       {label:this.t('quit'), color:'#8b93a7',pos:new THREE.Vector3(0.2,1.02,-0.85), onTrigger:()=>this.showHub()}
     ]);
-    this.speak(this.t('player')+' '+(p+1));
+    this.speak(this._vsName(p));
   }
   _vsBeginTurn(){
     const g=this.vs.rounds[this.vs.idx]; this.currentGame=g; g.init?.(this); this.clearField();
@@ -649,8 +682,8 @@ export class Engine {
     const vs=this.vs; this.state='vsover'; this.showHUD(false);
     const sc=vs.scores, max=Math.max.apply(null,sc);
     const winners=[]; sc.forEach((s,i)=>{ if(s===max) winners.push(i+1); });
-    const line = sc.map((s,i)=>'J'+(i+1)+' '+s).join('   ');
-    const verdict = winners.length>1 ? this.t('tie') : (this.t('player')+' '+winners[0]+' '+this.t('winner'));
+    const line = sc.map((s,i)=>this._vsName(i).slice(0,6)+' '+s).join('   ');
+    const verdict = winners.length>1 ? this.t('tie') : (this._vsName(winners[0]-1)+' '+this.t('winner'));
     this.drawBoard([
       {text:this.t('vs'),s:38,col:'#ffd54a',gap:10},
       {text:line,s:sc.length>=3?46:66,col:'#f4f6fb',gap:12},
