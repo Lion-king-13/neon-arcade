@@ -22,8 +22,10 @@ function res(){
 }
 function makeRod(i){
   const color=[0x2ee6d6,0xff4d5e][i]; const g=new THREE.Group();
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,0.10,10), new THREE.MeshStandardMaterial({color:0x14161c,roughness:.6})); grip.rotation.x=Math.PI/2; grip.position.z=0.02; g.add(grip);
-  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.010,0.5,8), new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.3, roughness:.4})); rod.rotation.x=Math.PI/2.2; rod.position.set(0,0.05,-0.24); g.add(rod);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.11,10), new THREE.MeshStandardMaterial({color:0x14161c,roughness:.6})); grip.rotation.x=Math.PI/2; grip.position.z=0.02; g.add(grip);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.02,12), new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.8, roughness:.4})); band.rotation.x=Math.PI/2; band.position.z=-0.04; g.add(band);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.012,0.5,10), new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.6, roughness:.35, metalness:.3})); rod.rotation.x=Math.PI/2.2; rod.position.set(0,0.05,-0.24); g.add(rod);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.014,10,8), new THREE.MeshBasicMaterial({color})); glow.position.set(0,0.17,-0.45); g.add(glow);
   const tip=new THREE.Object3D(); tip.position.set(0,0.17,-0.45); g.add(tip); g.userData.tip=tip;
   return g;
 }
@@ -61,12 +63,13 @@ export default {
     this._rods=[]; this._hands=[]; this._fish=[];
     engine.setTool((i)=>{ const rd=makeRod(i); this._rods[i]=rd; return rd; });
     for(let i=0;i<2;i++){
-      const bob=new THREE.Mesh(new THREE.SphereGeometry(0.026,12,10), new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0x8a1420, emissiveIntensity:.5, roughness:.4}));
+      const hc=[0x2ee6d6,0xff4d5e][i];
+      const bob=new THREE.Mesh(new THREE.SphereGeometry(0.026,12,10), new THREE.MeshStandardMaterial({color:hc, emissive:hc, emissiveIntensity:.6, roughness:.4}));
       const top=new THREE.Mesh(new THREE.SphereGeometry(0.014,8,8), new THREE.MeshBasicMaterial({color:0xf4f6fb})); top.position.y=0.024; bob.add(top);
       engine.field.add(bob);
-      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]), new THREE.LineBasicMaterial({color:0xf4f6fb, transparent:true, opacity:.5}));
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]), new THREE.LineBasicMaterial({color:hc, transparent:true, opacity:.7}));
       engine.field.add(line);
-      this._hands[i]={state:'reeled', bob, line, vel:new THREE.Vector3(), pos:new THREE.Vector3(), biteFish:null};
+      this._hands[i]={state:'reeled', bob, line, vel:new THREE.Vector3(), pos:new THREE.Vector3(), biteFish:null, hc};
     }
     this._spawnTimer=0.4;
   },
@@ -81,6 +84,7 @@ export default {
       h.state='cast'; engine.sfx.pick();
     } else if(h.state==='water' || h.state==='grass'){
       if(h.biteFish){ const f=h.biteFish; const pos=f.group.position.clone();
+        engine.burst(pos, f.type==='gold'?0xffd54a:(f.type==='boot'?0x8b93a7:h.hc));
         if(f.type==='boot'){ engine.good(pos,0,'#8b93a7'); engine.combo=Math.max(0,engine.combo-1); }
         else engine.good(pos, f.type==='gold'?5:1, f.type==='gold'?'#ffd54a':'#d6f9ff');
         this._popFish(engine,f); h.biteFish=null;
