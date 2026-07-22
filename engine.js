@@ -263,19 +263,19 @@ export class Engine {
     const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
     const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
-    const R=0.11, cy=R, cz=-0.33;   // centre du cerceau ; bas du cerceau ≈ (0,0,-0.33)
+    const R=0.10, cz=-0.28-R;   // centre du cerceau ; bord proche au bout du manche (~z=-0.28)
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
     const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.15,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
-    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.17,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.245; g.add(seg2);
-    // cerceau vertical (face avant), décalé vers le haut : le manche arrive à son BAS
+    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.14,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.22; g.add(seg2);
+    // cerceau dans le PLAN du manche (prolonge l'axe) — normale vers le haut
     const hoop=new T.Mesh(new T.TorusGeometry(R,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.9, roughness:.4, metalness:.3}));
-    hoop.position.set(0,cy,cz); g.add(hoop);
-    // poche maillée peu profonde, droit devant
-    const depth=0.13;
-    const fill=new T.Mesh(new T.ConeGeometry(R,depth,24,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.08, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.set(0,cy,cz-depth/2); g.add(fill);
-    const mesh=new T.Mesh(new T.ConeGeometry(R*0.98,depth,24,4,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); mesh.rotation.x=-Math.PI/2; mesh.position.set(0,cy,cz-depth/2); g.add(mesh);
-    const bottom=new T.Mesh(new T.CircleGeometry(0.028,16), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5, side:T.DoubleSide})); bottom.position.set(0,cy,cz-depth); g.add(bottom);
-    const cp=new T.Object3D(); cp.position.set(0,cy,cz); g.add(cp); g.userData.cp=cp;
+    hoop.rotation.x=Math.PI/2; hoop.position.set(0,0,cz); g.add(hoop);
+    // poche maillée peu profonde SOUS le cerceau (comme une crosse)
+    const depth=0.08;
+    const fill=new T.Mesh(new T.ConeGeometry(R,depth,24,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide})); fill.rotation.x=Math.PI; fill.position.set(0,-depth/2,cz); g.add(fill);
+    const mesh=new T.Mesh(new T.ConeGeometry(R*0.98,depth,24,4,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); mesh.rotation.x=Math.PI; mesh.position.set(0,-depth/2,cz); g.add(mesh);
+    const bottom=new T.Mesh(new T.CircleGeometry(0.028,16), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5, side:T.DoubleSide})); bottom.rotation.x=Math.PI/2; bottom.position.set(0,-depth,cz); g.add(bottom);
+    const cp=new T.Object3D(); cp.position.set(0,0,cz); g.add(cp); g.userData.cp=cp;
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -492,7 +492,7 @@ export class Engine {
     if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
     this.clearField(); this.clearPopups();
     this.useEnvironment('hub');
-    if(this.hub) this.hub._view='base';
+    if(this.hub){ this.hub._scope='base'; this.hub._family=null; }
     this.hub.render();
   }
   showSpecialHub(){
@@ -500,7 +500,7 @@ export class Engine {
     if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
     this.clearField(); this.clearPopups();
     this.useEnvironment('hub');
-    if(this.hub) this.hub._view='special';
+    if(this.hub){ this.hub._scope='special'; this.hub._family=null; }
     this.hub.render();
   }
   showHelp(scope){
@@ -626,25 +626,45 @@ export class Engine {
     this.sfx.end(); this.speak(this.t('timeUp'));
   }
 
-  /* ---------- Mode VS (2 joueurs, à tour de rôle) ---------- */
+  /* ---------- Mode VS (chaque joueur enchaîne toute sa série) ---------- */
   startVS(){
     this.hub?.hide?.();
+    this._vsCfg={players:2, nGames:3, dlc:false};
     this.state='vspick'; this.showHUD(false); this.clearField(); this.clearPopups();
     this.useEnvironment(this.settings.mode==='ar'?'gameAR':'gameVR');
     const fr=this.lang==='fr';
     this.drawBoard([{text:this.t('vs'),s:56,col:'#ffd54a',gap:12},{text:fr?'Combien de joueurs ?':'How many players?',s:44,col:'#2ee6d6'}]);
     this.showBoard(true);
     this.setButtons([
-      {label:'2', color:'#2ee6d6', pos:new THREE.Vector3(-0.34,1.02,-0.85), onTrigger:()=>this._vsStart(2)},
-      {label:'3', color:'#b8f34d', pos:new THREE.Vector3(0,1.02,-0.85),     onTrigger:()=>this._vsStart(3)},
-      {label:'4', color:'#8b6cff', pos:new THREE.Vector3(0.34,1.02,-0.85),  onTrigger:()=>this._vsStart(4)}
+      {label:'2', color:'#2ee6d6', pos:new THREE.Vector3(-0.34,1.02,-0.85), onTrigger:()=>{ this._vsCfg.players=2; this._vsPickGames(); }},
+      {label:'3', color:'#b8f34d', pos:new THREE.Vector3(0,1.02,-0.85),     onTrigger:()=>{ this._vsCfg.players=3; this._vsPickGames(); }},
+      {label:'4', color:'#8b6cff', pos:new THREE.Vector3(0.34,1.02,-0.85),  onTrigger:()=>{ this._vsCfg.players=4; this._vsPickGames(); }}
     ]);
   }
-  _vsStart(count){
-    const pool=this.games.filter(g=>!g.dlc && !g.chooseOptions);
+  _vsPickGames(){
+    const fr=this.lang==='fr';
+    this.drawBoard([{text:this.t('vs'),s:56,col:'#ffd54a',gap:12},{text:fr?'Combien de mini-jeux ?':'How many mini-games?',s:44,col:'#2ee6d6'}]);
+    this.setButtons([
+      {label:'1', color:'#2ee6d6', pos:new THREE.Vector3(-0.34,1.02,-0.85), onTrigger:()=>{ this._vsCfg.nGames=1; this._vsAfterGames(); }},
+      {label:'3', color:'#b8f34d', pos:new THREE.Vector3(0,1.02,-0.85),     onTrigger:()=>{ this._vsCfg.nGames=3; this._vsAfterGames(); }},
+      {label:'5', color:'#8b6cff', pos:new THREE.Vector3(0.34,1.02,-0.85),  onTrigger:()=>{ this._vsCfg.nGames=5; this._vsAfterGames(); }}
+    ]);
+  }
+  _vsAfterGames(){ if(this.entitled('special')) this._vsPickDLC(); else this._vsBuild(false); }
+  _vsPickDLC(){
+    const fr=this.lang==='fr';
+    this.drawBoard([{text:this.t('vs'),s:56,col:'#ffd54a',gap:12},{text:fr?'Inclure les modes spéciaux ?':'Include special modes?',s:42,col:'#2ee6d6'}]);
+    this.setButtons([
+      {label:fr?'NON':'NO',  color:'#8b93a7', pos:new THREE.Vector3(-0.22,1.02,-0.85), onTrigger:()=>this._vsBuild(false)},
+      {label:fr?'OUI':'YES', color:'#b8f34d', pos:new THREE.Vector3(0.22,1.02,-0.85),  onTrigger:()=>this._vsBuild(true)}
+    ]);
+  }
+  _vsBuild(includeDLC){
+    const cfg=this._vsCfg;
+    const pool=this.games.filter(g=>!g.chooseOptions && (includeDLC || !g.dlc));
     for(let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
-    const rounds=pool.slice(0, Math.min(3, pool.length));
-    this.vs={active:true, rounds, n:rounds.length, idx:0, player:0, players:count, scores:new Array(count).fill(0)};
+    const rounds=pool.slice(0, Math.min(cfg.nGames, pool.length));
+    this.vs={active:true, rounds, n:rounds.length, idx:0, player:0, players:cfg.players, scores:new Array(cfg.players).fill(0)};
     this._vsReady();
   }
   _vsColor(p){ return ['#2ee6d6','#ff4d5e','#b8f34d','#8b6cff'][p%4]; }
@@ -674,9 +694,9 @@ export class Engine {
   }
   _vsAdvance(){
     const vs=this.vs; if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; } this.clearField();
-    vs.player++;
-    if(vs.player < vs.players){ this._vsReady(); }
-    else { vs.player=0; vs.idx++; if(vs.idx<vs.n) this._vsReady(); else this._vsResults(); }
+    vs.idx++;
+    if(vs.idx < vs.n){ this._vsReady(); }                 // même joueur, jeu suivant
+    else { vs.idx=0; vs.player++; if(vs.player<vs.players) this._vsReady(); else this._vsResults(); }
   }
   _vsResults(){
     const vs=this.vs; this.state='vsover'; this.showHUD(false);

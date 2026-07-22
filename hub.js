@@ -1,6 +1,15 @@
 // hub.js — menu in-VR rétro : on choisit un jeu en touchant une orbe.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
+// Grandes familles de jeux
+const FAMILIES=[
+  {id:'tir',     fr:'Tir',             en:'Shooting',   color:'#ff2d95'},
+  {id:'peche',   fr:'Pêche & Attrape', en:'Catch & Fish', color:'#2ee6d6'},
+  {id:'adresse', fr:'Adresse',         en:'Skill',      color:'#b8f34d'}
+];
+const FAMILY={ whackamole:'adresse', butterflies:'peche', ducks:'peche', shooting:'tir', balloons:'tir', chamboultout:'tir', reflex:'adresse', fishing:'peche', ringtoss:'adresse', skeet:'tir', sniper:'tir', ducksgold:'peche', ducksrapids:'peche', reflexchaos:'adresse' };
+const famOf=(g)=>FAMILY[g.id]||'adresse';
+
 export class Hub {
   constructor(engine){
     this.e = engine;
@@ -43,34 +52,33 @@ export class Hub {
   _clear(){ for(const o of this.orbs){ this.group.remove(o.g); this.group.remove(o.lbl); } this.orbs.length=0; }
 
   render(){
-    const e=this.e;
-    this._clear();
-    if(!this._view) this._view='base';
-    e.showHUD(false);
-    const special = this._view==='special';
-    e.drawBoard([{text:special?e.t('special'):'NEON ARCADE', s:special?60:78, col:special?'#ffd54a':'#ff2d95', gap:8},{text:e.t('choose'), s:44, col:'#2ee6d6'}]);
+    const e=this.e; this._clear(); e.showHUD(false);
+    const scope=this._scope||'base'; const special=(scope==='special'); const fam=this._family||null;
+    const famDef = fam ? FAMILIES.find(f=>f.id===fam) : null;
+    const title = fam ? (famDef[e.lang]||famDef.fr) : (special ? e.t('specialTitle') : 'NEON ARCADE');
+    e.drawBoard([{text:title, s: fam?66:(special?60:78), col: fam?famDef.color:(special?'#ffd54a':'#ff2d95'), gap:8},{text:e.t('choose'), s:44, col:'#2ee6d6'}]);
     e.showBoard(true);
 
-    let items;
-    if(special){
-      items=e.games.filter(g=>g.special).map(g=>({ label:(g.name[e.lang]||g.name.fr), color:g.color||'#ffd54a', locked:false, action:()=>e.selectGame(g) }));
-      items.push({label:e.t('help'), color:'#4db8ff', action:()=>e.showHelp('special')});
-      items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('special')});
-      items.push({label:e.t('back'), color:'#8b93a7', action:()=>{ this._view='base'; this.render(); }});
-    } else {
-      items=e.games.filter(g=>!g.special).map(g=>({
-        label:(g.name[e.lang]||g.name.fr), color:g.color||'#2ee6d6',
-        locked: !!g.dlc && !e.entitled('special'), action:()=>e.selectGame(g)
-      }));
-      // orbe Modes Spéciaux (si des modes spéciaux existent)
-      if(e.games.some(g=>g.special)){
-        items.push({ label:e.t('special'), color:'#ffd54a', locked:!e.entitled('special'), action:()=>{ this._view='special'; this.render(); } });
+    const scoped = e.games.filter(special? g=>g.special : g=>!g.special);
+    let items=[];
+    if(fam===null){
+      for(const F of FAMILIES){ if(scoped.some(g=>famOf(g)===F.id)) items.push({label:(F[e.lang]||F.fr), color:F.color, action:()=>{ this._family=F.id; this.render(); }}); }
+      if(special){
+        items.push({label:e.t('help'),   color:'#4db8ff', action:()=>e.showHelp('special')});
+        items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('special')});
+        items.push({label:e.t('back'),   color:'#8b93a7', action:()=>{ this._scope='base'; this._family=null; this.render(); }});
+      } else {
+        if(e.games.some(g=>g.special)) items.push({label:e.t('special'), color:'#8b6cff', locked:!e.entitled('special'), action:()=>{ this._scope='special'; this._family=null; this.render(); }});
+        items.push({label:e.t('vs'),     color:'#b8f34d', action:()=>e.startVS()});
+        items.push({label:e.t('help'),   color:'#4db8ff', action:()=>e.showHelp('base')});
+        items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('base')});
+        items.push({label:e.t('quit'),   color:'#8b93a7', action:()=>e.exit()});
       }
-      items.push({label:e.t('vs'), color:'#b8f34d', action:()=>e.startVS()});
-      items.push({label:e.t('help'), color:'#4db8ff', action:()=>e.showHelp('base')});
-      items.push({label:e.t('scores'), color:'#ffd54a', action:()=>e.showScores('base')});
-      items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
+    } else {
+      items = scoped.filter(g=>famOf(g)===fam).map(g=>({label:(g.name[e.lang]||g.name.fr), color:g.color||'#2ee6d6', action:()=>e.selectGame(g)}));
+      items.push({label:e.t('back'), color:'#8b93a7', action:()=>{ this._family=null; this.render(); }});
     }
+
     const n=items.length;
     const rows = n>6 ? 2 : 1;
     const perRow = Math.ceil(n/rows);

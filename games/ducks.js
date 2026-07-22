@@ -86,7 +86,15 @@ const ducks = {
     this._hooks=[];
     engine.setTool((i)=>{ const h=engine.makeHook(i); this._hooks[i]=h; return h; });
     for(const o of this._active.slice()) engine.field.remove(o.group);
+    if(this._ripples) for(const rp of this._ripples) engine.field.remove(rp.m);
+    this._ripples=[]; this._rippleT=0.3;
     this._active.length=0; this._hooked=[null,null]; this._spawnTimer=0.2;
+  },
+  _spawnRipple(engine){
+    const ang=Math.random()*Math.PI*2, rad=IN_R+Math.random()*(OUT_R-IN_R);
+    const m=new THREE.Mesh(new THREE.TorusGeometry(0.04,0.006,8,20), new THREE.MeshBasicMaterial({color:0x9fe8ff, transparent:true, opacity:.6}));
+    m.rotation.x=-Math.PI/2; m.position.set(Math.cos(ang)*rad, WATER_Y+0.012, Math.sin(ang)*rad); engine.field.add(m);
+    this._ripples.push({m, t:0});
   },
 
   _bombCount(){ let n=0; for(const o of this._active) if(o.type==='bad') n++; return n; },
@@ -102,7 +110,7 @@ const ducks = {
     }
     const g=makeDuck(type); engine.field.add(g);
     const ang=Math.random()*Math.PI*2, rad=IN_R+0.1+Math.random()*(OUT_R-IN_R-0.2);
-    const life=type==='bad'?5.5:(8+Math.random()*3);
+    const life = type==='bad' ? (this.fast?4:5.5) : (this.fast ? (4.5+Math.random()*2) : (8+Math.random()*3));
     const wBase=this.fast?0.30:0.12, wRng=this.fast?0.45:0.28;
     const obj={ group:g, type, ang, rad, w:(Math.random()<0.5?1:-1)*(wBase+Math.random()*wRng),
       ph:Math.random()*6, hooked:false, hand:-1, diving:false, tt:0, life };
@@ -120,6 +128,10 @@ const ducks = {
       this._spawnTimer={easy:0.8,normal:0.6,hard:0.45}[engine.settings.diff]*(rush?0.6:1)*(0.6+Math.random()*0.6);
     }
     const time=engine.clock.elapsedTime;
+    if(this.fast && this._ripples){
+      this._rippleT-=dt; if(this._rippleT<=0){ this._spawnRipple(engine); this._rippleT=0.22+Math.random()*0.3; }
+      for(let k=this._ripples.length-1;k>=0;k--){ const rp=this._ripples[k]; rp.t+=dt; const s=1+rp.t*7; rp.m.scale.set(s,s,s); rp.m.material.opacity=Math.max(0,0.6-rp.t*0.7); if(rp.t>0.9){ engine.field.remove(rp.m); this._ripples.splice(k,1); } }
+    }
 
     // positions des pointes de crochet
     const tips=[];
@@ -177,6 +189,7 @@ const ducks = {
 
   cleanup(engine){
     for(const o of this._active.slice()) engine.field.remove(o.group);
+    if(this._ripples){ for(const rp of this._ripples) engine.field.remove(rp.m); this._ripples=[]; }
     this._active.length=0; this._hooked=[null,null]; this._basket=null;
     engine.clearTool();
   }

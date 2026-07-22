@@ -79,8 +79,10 @@ export default {
     const h=this._hands[i]; if(!h) return;
     if(h.state==='reeled'){
       const o=new THREE.Vector3(), d=new THREE.Vector3(); engine.aimRay(i,o,d);
+      const hv=new THREE.Vector3(); engine.controllerVel(i,hv);
       this._tip(engine,i,h.pos);
-      h.vel.copy(d).multiplyScalar(CAST_POWER); h.vel.y+=1.0;
+      // portée = petite base le long de la visée + geste de la main (flick vers l'avant)
+      h.vel.copy(d).multiplyScalar(1.5).addScaledVector(hv, 1.1); h.vel.y+=0.8;
       h.state='cast'; engine.sfx.pick();
     } else if(h.state==='water' || h.state==='grass'){
       if(h.biteFish){ const f=h.biteFish; const pos=f.group.position.clone();
