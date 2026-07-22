@@ -110,8 +110,8 @@ import { Engine } from './engine.js';
 import { Hub } from './hub.js';
 import whackamole from './games/whackamole.js';
 import butterflies from './games/butterflies.js';
-import ducks from './games/ducks.js';
-import shooting from './games/shooting.js';
+import ducks, { goldrush as ducksgold, rapids as ducksrapids } from './games/ducks.js';
+import shooting, { sniper } from './games/shooting.js';
 import balloons from './games/balloons.js';
 import chamboultout from './games/chamboultout.js';
 import reflexpads, { chaos as reflexchaos } from './games/reflexpads.js';
@@ -145,7 +145,7 @@ let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
 const t = k => T[lang][k];
 
 const engine = new Engine();
-engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, skeet, reflexchaos]);
+engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, skeet, reflexchaos, sniper, ducksgold, ducksrapids]);
 const hub = new Hub(engine);
 engine.setHub(hub);
 

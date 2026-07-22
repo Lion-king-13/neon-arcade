@@ -57,12 +57,13 @@ function makeDuck(type){
   return g;
 }
 
-export default {
+const ducks = {
   id:'ducks',
   name:{fr:'Pêche aux Canards', en:'Duck Pond'},
   color:'#2ee6d6',
   usesSurfaces:false,
   theme:'meadow',
+  goldRush:false, fast:false,
 
   _active:[], _spawnTimer:0, _hooks:[], _hooked:[null,null], _basket:null,
 
@@ -92,13 +93,18 @@ export default {
 
   _spawn(engine){
     let type='normal'; const rnd=Math.random();
-    const badChance={easy:0.10,normal:0.15,hard:0.22}[engine.settings.diff];
-    if(rnd<badChance && this._bombCount()<2) type='bad';
-    else if(rnd<badChance+0.10) type='gold';
+    if(this.goldRush){
+      type = rnd<0.55 ? 'gold' : 'normal';           // ruée de dorés, pas de bombes
+    } else {
+      const badChance={easy:0.10,normal:0.15,hard:0.22}[engine.settings.diff];
+      if(rnd<badChance && this._bombCount()<2) type='bad';
+      else if(rnd<badChance+0.10) type='gold';
+    }
     const g=makeDuck(type); engine.field.add(g);
     const ang=Math.random()*Math.PI*2, rad=IN_R+0.1+Math.random()*(OUT_R-IN_R-0.2);
     const life=type==='bad'?5.5:(8+Math.random()*3);
-    const obj={ group:g, type, ang, rad, w:(Math.random()<0.5?1:-1)*(0.12+Math.random()*0.28),
+    const wBase=this.fast?0.30:0.12, wRng=this.fast?0.45:0.28;
+    const obj={ group:g, type, ang, rad, w:(Math.random()<0.5?1:-1)*(wBase+Math.random()*wRng),
       ph:Math.random()*6, hooked:false, hand:-1, diving:false, tt:0, life };
     this._active.push(obj);
   },
@@ -106,11 +112,12 @@ export default {
   _pop(engine,o){ engine.field.remove(o.group); const i=this._active.indexOf(o); if(i>=0) this._active.splice(i,1); },
 
   update(dt, engine){
-    const maxConc={easy:5,normal:6,hard:8}[engine.settings.diff];
+    const rush=this.goldRush||this.fast;
+    const maxConc=(this.goldRush?7:{easy:5,normal:6,hard:8}[engine.settings.diff]);
     this._spawnTimer-=dt;
     if(this._spawnTimer<=0 && this._active.length<maxConc){
       this._spawn(engine);
-      this._spawnTimer={easy:0.8,normal:0.6,hard:0.45}[engine.settings.diff]*(0.6+Math.random()*0.6);
+      this._spawnTimer={easy:0.8,normal:0.6,hard:0.45}[engine.settings.diff]*(rush?0.6:1)*(0.6+Math.random()*0.6);
     }
     const time=engine.clock.elapsedTime;
 
@@ -174,3 +181,16 @@ export default {
     engine.clearTool();
   }
 };
+
+export default ducks;
+// Variantes DLC (modes spéciaux)
+export const goldrush = Object.assign({}, ducks, {
+  id:'ducksgold', name:{fr:'Canards — Ruée Dorée', en:'Ducks — Golden Rush'}, color:'#ffd54a',
+  goldRush:true, fast:false, dlc:true, special:true,
+  _active:[], _hooked:[null,null], _hooks:[], _basket:null
+});
+export const rapids = Object.assign({}, ducks, {
+  id:'ducksrapids', name:{fr:'Canards — Rapides', en:'Ducks — Rapids'}, color:'#4db8ff',
+  goldRush:false, fast:true, dlc:true, special:true,
+  _active:[], _hooked:[null,null], _hooks:[], _basket:null
+});

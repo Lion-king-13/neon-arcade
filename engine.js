@@ -303,7 +303,7 @@ export class Engine {
     const glow=new T.Mesh(new T.SphereGeometry(0.013,12,10), new T.MeshBasicMaterial({color})); glow.position.set(0,0.006,-0.25); g.add(glow);
     const beam=new T.Mesh(new T.CylinderGeometry(0.0018,0.0018,6,6), new T.MeshBasicMaterial({color, transparent:true, opacity:.3}));
     beam.rotation.x=Math.PI/2; beam.position.set(0,0.006,-3.25); g.add(beam);
-    g.userData.tip=glow; g.userData.color=color;
+    g.userData.tip=glow; g.userData.color=color; g.userData.beam=beam;
     return g;
   }
   eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); cb(this._tmp,i); } }
@@ -522,7 +522,10 @@ export class Engine {
       fishing:{fr:'Lance, attends, ferre au bon moment.',en:'Cast, wait, hook in time.'},
       ringtoss:{fr:'Lance les anneaux sur les quilles.',en:'Toss rings onto the pegs.'},
       skeet:{fr:'Tire les plateaux au vol.',en:'Shoot clays in flight.'},
-      reflexchaos:{fr:'Dalles + dorées & rouges à éviter.',en:'Tiles + gold & red to avoid.'}
+      reflexchaos:{fr:'Dalles + dorées & rouges à éviter.',en:'Tiles + gold & red to avoid.'},
+      sniper:{fr:'Cibles petites & lointaines, sans visée.',en:'Small far targets, no aim beam.'},
+      ducksgold:{fr:'Ruée de canards dorés, sans bombes.',en:'Golden duck rush, no bombs.'},
+      ducksrapids:{fr:'Le courant s\'emballe, canards rapides.',en:'Fast current, speedy ducks.'}
     };
     const c=this.board.ctx, W=this.board.canvas.width, H=this.board.canvas.height; c.clearRect(0,0,W,H);
     c.fillStyle='rgba(15,20,34,.92)'; this._rr(c,0,0,W,H,34); c.fill();

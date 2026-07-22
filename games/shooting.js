@@ -67,16 +67,17 @@ function makeGun(i){
   // faisceau de visée aligné (le long de -Z du contrôleur)
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.0018,0.0018,6,6), new THREE.MeshBasicMaterial({color, transparent:true, opacity:.3}));
   beam.rotation.x=Math.PI/2; beam.position.set(0,0.006,-3.25); g.add(beam);
-  g.userData.tip=glow; g.userData.color=color;
+  g.userData.tip=glow; g.userData.color=color; g.userData.beam=beam;
   return g;
 }
 
-export default {
+const shooting = {
   id:'shooting',
   name:{fr:'Stand de Tir', en:'Shooting Range'},
   color:'#ff2d95',
   usesSurfaces:false,
   theme:'carnival',
+  sniper:false,
 
   _active:[], _spawnTimer:0, _guns:[], _flash:[0,0], _tracers:[],
 
@@ -86,6 +87,7 @@ export default {
   start(engine){
     this._guns=[];
     engine.setTool((i)=>{ const gun=makeGun(i); this._guns[i]=gun; return gun; }, 'ray');
+    if(this.sniper){ for(const gn of this._guns){ if(gn && gn.userData.beam) gn.userData.beam.visible=false; } }
     for(const o of this._active.slice()) engine.field.remove(o.group);
     for(const tr of this._tracers) engine.scene.remove(tr.mesh);
     this._active.length=0; this._tracers.length=0; this._flash=[0,0]; this._spawnTimer=0.4;
@@ -96,10 +98,11 @@ export default {
     const badChance={easy:0.10,normal:0.16,hard:0.24}[engine.settings.diff];
     if(rnd<badChance) type='bad'; else if(rnd<badChance+0.10) type='gold';
     const tg=makeTarget(type);
+    if(this.sniper){ tg.group.scale.setScalar(0.55); tg.radius*=0.55; }
     const dir=Math.random()<0.5?1:-1;
-    const y=1.0+Math.random()*0.9, z=-1.6-Math.random()*0.7;
-    const x=-dir*1.55;
-    const speed={easy:[0.5,0.8],normal:[0.8,1.2],hard:[1.2,1.7]}[engine.settings.diff];
+    const y=1.0+Math.random()*0.9, z=this.sniper?(-2.6-Math.random()*0.9):(-1.6-Math.random()*0.7);
+    const x=-dir*(this.sniper?2.0:1.55);
+    const speed=this.sniper?[0.45,0.85]:{easy:[0.5,0.8],normal:[0.8,1.2],hard:[1.2,1.7]}[engine.settings.diff];
     tg.pos=new THREE.Vector3(x,y,z); tg.vx=dir*(speed[0]+Math.random()*(speed[1]-speed[0]));
     tg.group.position.copy(tg.pos); tg.dead=false; tg.ph=Math.random()*6;
     engine.field.add(tg.group); this._active.push(tg);
@@ -130,7 +133,7 @@ export default {
     if(best){
       end=best.pos.clone(); best.dead=true;
       if(best.type==='bad') engine.bad(best.pos.clone(),3);
-      else engine.good(best.pos.clone(), best.type==='gold'?5:1, best.type==='gold'?'#ffd54a':'#eaffd2');
+      else { const base=best.type==='gold'?(this.sniper?8:5):(this.sniper?3:1); engine.good(best.pos.clone(), base, best.type==='gold'?'#ffd54a':'#eaffd2'); }
       this._remove(engine,best);
     } else { end=o.clone().addScaledVector(d,6); engine.miss(); }
     this._tracer(engine, o, end, this._guns[i]?this._guns[i].userData.color:0x2ee6d6);
@@ -150,7 +153,7 @@ export default {
       tg.group.position.copy(tg.pos);
       if(tg.group.userData.rim) tg.group.userData.rim.rotation.z += dt*1.2;
       if(tg.group.userData.spark){ tg.group.userData.spark.scale.setScalar(1+Math.sin(time*18+tg.ph)*0.3); }
-      if(Math.abs(tg.pos.x)>1.7) this._remove(engine,tg);
+      if(Math.abs(tg.pos.x)>(this.sniper?2.2:1.7)) this._remove(engine,tg);
     }
     // éclat au canon
     for(let i=0;i<2;i++){
@@ -171,3 +174,11 @@ export default {
     engine.clearTool();
   }
 };
+
+export default shooting;
+// Variante DLC : cibles petites et lointaines, sans faisceau, gros points.
+export const sniper = Object.assign({}, shooting, {
+  id:'sniper', name:{fr:'Tir — Sniper', en:'Shooting — Sniper'}, color:'#8b6cff',
+  sniper:true, dlc:true, special:true,
+  _active:[], _guns:[], _flash:[0,0], _tracers:[]
+});
