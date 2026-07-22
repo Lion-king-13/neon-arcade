@@ -4,7 +4,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const G = 4.6;                 // gravité
-const CAPTURE = 0.10;          // tolérance d'enfilage
+const CAPTURE = 0.115;         // tolérance d'enfilage
 const MIN_TRAVEL = 0.55;       // distance horizontale mini pour valider (anti-dépôt)
 const RING_COL = [0x2ee6d6, 0xff4d5e];
 
@@ -38,8 +38,8 @@ export default {
   init(engine){ res(); },
   buildLayout(engine, spots){
     const r=res(); this._pegs.length=0;
-    const table=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,0.7), r.tableMat); table.position.set(0,0.86,-1.5); engine.field.add(table);
-    const rows=[{z:-1.35,y:0.9,n:3,dx:0.34},{z:-1.65,y:0.9,n:4,dx:0.30}];
+    const table=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.08,0.8), r.tableMat); table.position.set(0,0.86,-1.85); engine.field.add(table);
+    const rows=[{z:-1.7,y:0.9,n:3,dx:0.34},{z:-2.0,y:0.9,n:4,dx:0.30}];
     for(const row of rows){ const startX=-(row.n-1)/2*row.dx;
       for(let k=0;k<row.n;k++){ const gold=Math.random()<0.18; const b=makeBottle(gold); const x=startX+k*row.dx;
         b.position.set(x,row.y,row.z); engine.field.add(b);

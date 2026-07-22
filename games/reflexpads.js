@@ -1,6 +1,6 @@
-// games/reflexpads.js — Dalles Réflexe
+// games/reflexpads.js — Dalles Réflexe (+ variante DLC "Chaos")
 // Des dalles s'illuminent autour de toi ; tape vite la bonne à la main.
-// Dalle allumée = +1, dorée = +5, rouge = à NE PAS toucher (−3). Rate = combo perdu.
+// Base : dalles normales (+1). Variante Chaos (DLC) : ajoute dorées (+5) et rouges (−3).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const ZAXIS = new THREE.Vector3(0,0,1);
@@ -15,29 +15,20 @@ function res(){
   return R;
 }
 
-export default {
+const reflex = {
   id:'reflex',
   name:{fr:'Dalles Réflexe', en:'Reflex Tiles'},
   color:'#b8f34d',
   usesSurfaces:false,
   theme:'carnival',
-  chooseOptions:true,
+  chaos:false,
 
-  _pads:[], _actTimer:0, _mode:'classic',
+  _pads:[], _actTimer:0,
 
   init(engine){ res(); },
 
-  chooseOptions(engine){
-    const fr=engine.lang==='fr';
-    engine.drawBoard([{text:fr?'Dalles Réflexe':'Reflex Tiles', s:64, col:'#b8f34d', gap:10},{text:fr?'Choisis un mode':'Choose a mode', s:44, col:'#2ee6d6'}]);
-    engine.setButtons([
-      {label:fr?'CLASSIQUE':'CLASSIC', color:'#b8f34d', pos:new THREE.Vector3(-0.2,1.1,-0.85), onTrigger:()=>{ this._mode='classic'; engine._startCountdown(); }},
-      {label:'CHAOS', color:'#ff2d95', pos:new THREE.Vector3(0.2,1.1,-0.85), onTrigger:()=>{ this._mode='chaos'; engine._startCountdown(); }}
-    ]);
-  },
-
   buildLayout(engine, spots){
-    this._pads.length=0;
+    this._pads=[];
     const r=res(); const PLAYER=new THREE.Vector3(0,1.5,0);
     const yaws=[-64,-32,0,32,64].map(d=>d*Math.PI/180);
     const pitches=[-40,-8,26].map(d=>d*Math.PI/180);
@@ -74,14 +65,13 @@ export default {
 
   update(dt, engine){
     const diff=engine.settings.diff;
-    // apparition
     this._actTimer-=dt;
     if(this._actTimer<=0){
       const free=this._pads.filter(p=>!p.active);
       if(free.length){
         const p=free[(Math.random()*free.length)|0];
         let type='normal'; const rnd=Math.random();
-        if(this._mode==='chaos'){
+        if(this.chaos){
           const badChance={easy:0.10,normal:0.16,hard:0.24}[diff];
           if(rnd<badChance) type='bad'; else if(rnd<badChance+0.10) type='gold';
         }
@@ -98,7 +88,6 @@ export default {
       p.panel.scale.setScalar(1+Math.sin(time*10)*0.04);
       if(p.tt>=p.life){ if(p.type!=='bad') engine.miss(); this._deactivate(p); }
     }
-    // frappe main
     engine.eachMallet((mp)=>{
       for(const p of this._pads){
         if(!p.active || p.cd>0) continue;
@@ -112,5 +101,16 @@ export default {
     });
   },
 
-  cleanup(engine){ this._pads.length=0; }
+  cleanup(engine){ this._pads=[]; }
 };
+
+export default reflex;
+// Variante DLC : mêmes règles + dalles dorées/rouges. Verrouillée tant que le pack n'est pas débloqué.
+export const chaos = Object.assign({}, reflex, {
+  id:'reflexchaos',
+  name:{fr:'Dalles Chaos', en:'Chaos Tiles'},
+  color:'#ff2d95',
+  chaos:true,
+  dlc:true,
+  _pads:[], _actTimer:0
+});

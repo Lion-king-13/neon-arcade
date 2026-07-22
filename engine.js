@@ -261,19 +261,15 @@ export class Engine {
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
     // manche télescopique
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
-    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.14,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.09; g.add(seg1);
-    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.13,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.22; g.add(seg2);
-    // cerceau (la bouche) au bout du manche
-    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3}));
-    hoop.position.z=-0.34; g.add(hoop);
-    // poche MAILLÉE au-delà du cerceau (vers l'avant) : voile léger + maille fine néon
-    const fill=new T.Mesh(new T.ConeGeometry(0.11,0.19,22,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide}));
-    fill.rotation.x=-Math.PI/2; fill.position.z=-0.435; g.add(fill);
-    const mesh=new T.Mesh(new T.ConeGeometry(0.108,0.185,22,7,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55}));
-    mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.433; g.add(mesh);
-    // fond arrondi pour fermer la poche
-    const bottom=new T.Mesh(new T.SphereGeometry(0.03,10,8), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); bottom.position.z=-0.52; g.add(bottom);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.35); g.add(cp); g.userData.cp=cp;   // capture au niveau du cerceau
+    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.15,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
+    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.13,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.23; g.add(seg2);
+    // tête inclinée : le cerceau est attaché au bout du bâton (comme un vrai filet)
+    const head=new T.Group(); head.position.set(0, 0.09, -0.30); head.rotation.x=-0.5; g.add(head);
+    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3})); head.add(hoop);
+    const fill=new T.Mesh(new T.ConeGeometry(0.11,0.19,22,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.z=-0.095; head.add(fill);
+    const mesh=new T.Mesh(new T.ConeGeometry(0.108,0.185,22,7,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55})); mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.093; head.add(mesh);
+    const bottom=new T.Mesh(new T.SphereGeometry(0.03,10,8), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); bottom.position.z=-0.18; head.add(bottom);
+    const cp=new T.Object3D(); head.add(cp); g.userData.cp=cp;   // capture au centre du cerceau
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -364,7 +360,10 @@ export class Engine {
       const p=this._makePanel(0.34,0.14,360); const c=p.ctx,W=p.canvas.width,H=p.canvas.height;
       c.fillStyle='rgba(19,24,38,.95)'; this._rr(c,0,0,W,H,40); c.fill();
       c.lineWidth=5; c.strokeStyle=it.color; this._rr(c,3,3,W-6,H-6,36); c.stroke();
-      c.fillStyle=it.color; c.textAlign='center'; c.font='900 58px Segoe UI, sans-serif'; c.fillText(it.label,W/2,H/2+20); p.tex.needsUpdate=true;
+      c.fillStyle=it.color; c.textAlign='center';
+      let fs=58; c.font='900 '+fs+'px Segoe UI, sans-serif';
+      while(c.measureText(it.label).width > W-46 && fs>26){ fs-=2; c.font='900 '+fs+'px Segoe UI, sans-serif'; }
+      c.fillText(it.label,W/2,H/2+fs*0.34); p.tex.needsUpdate=true;
       p.mesh.position.copy(it.pos); this.scene.add(p.mesh);
       this.buttons.push({mesh:p.mesh,onTrigger:it.onTrigger,cd:0.5});
     }
@@ -549,7 +548,10 @@ export class Engine {
     await this.renderer.xr.setSession(session);
     this.boundedSpace=(mode==='ar')?await session.requestReferenceSpace('bounded-floor').catch(()=>null):null;
     session.addEventListener('end',()=>{ this._onSessionEnd(); },{once:true});
-    session.addEventListener('visibilitychange',()=>{ if(session.visibilityState!=='visible' && this.state==='play') this.pause(); });
+    const autoPause=()=>{ if(this.state==='play') this.pause(); };
+    session.addEventListener('visibilitychange', ()=>{ if(session.visibilityState!=='visible') autoPause(); });
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden) autoPause(); });
+    addEventListener('blur', autoPause);
     this.showHub();
   }
   _onSessionEnd(){
@@ -595,6 +597,7 @@ export class Engine {
     if(this.renderer.xr.isPresenting){ this.renderer.xr.getCamera().getWorldQuaternion(this._vq); } else this.camera.getWorldQuaternion(this._vq);
 
     this._pollPause(frame);
+    if(this.xrSession && this.state==='play'){ const vs=this.xrSession.visibilityState; if(vs && vs!=='visible') this.pause(); }
     this._updateParticles(dt);
     if(this.env.visible) this._updateFireflies(time);
     if(this.carnival.visible) this._updateCarnival(time);
