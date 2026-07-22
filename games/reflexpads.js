@@ -112,5 +112,6 @@ export const chaos = Object.assign({}, reflex, {
   color:'#ff2d95',
   chaos:true,
   dlc:true,
+  special:true,
   _pads:[], _actTimer:0
 });

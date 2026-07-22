@@ -5,11 +5,15 @@ const BASE_STRINGS = {
   fr:{ score:"SCORE", combo:"COMBO", time2:"TEMPS", again:"REJOUER", menu:"MENU", quit:"QUITTER", play:"JOUER",
        go:"GO", timeUp:"TEMPS !", result:"TERMINÉ", newbest:"NOUVEAU RECORD !", hitsL:"Touchées", accL:"Précision",
        best:"Meilleur", scanning:"Analyse de la zone…", choose:"Choisis un jeu", ready:"Prêt",
-       pause:"PAUSE", resume:"REPRENDRE", restart:"RECOMMENCER" },
+       pause:"PAUSE", resume:"REPRENDRE", restart:"RECOMMENCER",
+       vs:"VS 2 JOUEURS", player:"Joueur", round:"Manche", start:"COMMENCER", winner:"gagne !", tie:"Égalité !", vsAgain:"REVANCHE",
+       special:"MODES SPÉCIAUX", specialTitle:"Modes Spéciaux", back:"RETOUR" },
   en:{ score:"SCORE", combo:"COMBO", time2:"TIME", again:"PLAY AGAIN", menu:"MENU", quit:"QUIT", play:"PLAY",
        go:"GO", timeUp:"TIME!", result:"FINISHED", newbest:"NEW RECORD!", hitsL:"Hits", accL:"Accuracy",
        best:"Best", scanning:"Scanning your area…", choose:"Choose a game", ready:"Ready",
-       pause:"PAUSED", resume:"RESUME", restart:"RESTART" }
+       pause:"PAUSED", resume:"RESUME", restart:"RESTART",
+       vs:"VS 2 PLAYERS", player:"Player", round:"Round", start:"START", winner:"wins!", tie:"Tie!", vsAgain:"REMATCH",
+       special:"SPECIAL MODES", specialTitle:"Special Modes", back:"BACK" }
 };
 
 export class Engine {
@@ -263,12 +267,14 @@ export class Engine {
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
     const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.15,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
     const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.13,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.23; g.add(seg2);
-    // tête inclinée : le cerceau est attaché au bout du bâton (comme un vrai filet)
-    const head=new T.Group(); head.position.set(0, 0.09, -0.30); head.rotation.x=-0.5; g.add(head);
-    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3})); head.add(hoop);
-    const fill=new T.Mesh(new T.ConeGeometry(0.11,0.19,22,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.z=-0.095; head.add(fill);
-    const mesh=new T.Mesh(new T.ConeGeometry(0.108,0.185,22,7,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55})); mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.093; head.add(mesh);
-    const bottom=new T.Mesh(new T.SphereGeometry(0.03,10,8), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); bottom.position.z=-0.18; head.add(bottom);
+    // tête : cerceau attaché au bout du bâton, quasi face à l'avant (léger angle)
+    const head=new T.Group(); head.position.set(0, 0.105, -0.315); head.rotation.x=-0.22; g.add(head);
+    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.008,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3})); head.add(hoop);
+    // poche PEU profonde (dôme maillé court derrière le cerceau) — filet, pas épuisette
+    const depth=0.06;
+    const fill=new T.Mesh(new T.ConeGeometry(0.11,depth,24,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide})); fill.rotation.x=-Math.PI/2; fill.position.z=-depth/2; head.add(fill);
+    const mesh=new T.Mesh(new T.ConeGeometry(0.108,depth,24,3,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55})); mesh.rotation.x=-Math.PI/2; mesh.position.z=-depth/2; head.add(mesh);
+    const bottom=new T.Mesh(new T.CircleGeometry(0.03,16), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); bottom.position.z=-depth; head.add(bottom);
     const cp=new T.Object3D(); head.add(cp); g.userData.cp=cp;   // capture au centre du cerceau
     return g;
   }
@@ -481,10 +487,20 @@ export class Engine {
   clearField(){ while(this.field.children.length){ this.field.remove(this.field.children[0]); } }
 
   showHub(){
+    this.vs=null; if(this.hub) this.hub._view='base';
     this.state='hub'; this.showHUD(false); this.clearButtons();
     if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
     this.clearField(); this.clearPopups();
     this.useEnvironment('hub');
+    if(this.hub) this.hub._view='base';
+    this.hub.render();
+  }
+  showSpecialHub(){
+    this.vs=null; this.state='hub'; this.showHUD(false); this.clearButtons();
+    if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
+    this.clearField(); this.clearPopups();
+    this.useEnvironment('hub');
+    if(this.hub) this.hub._view='special';
     this.hub.render();
   }
   selectGame(game){
@@ -514,7 +530,11 @@ export class Engine {
   }
   _startPlay(){ this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); this.timeLeft=this.settings.dur; this.sfx.go(); this.speak(this.t('go')); }
   _endGame(){
-    this.state='over'; this.showHUD(false); this.currentGame.onEnd?.(this);
+    this.currentGame.onEnd?.(this);
+    if(this.vs && this.vs.active){
+      this.vs.scores[this.vs.player]+=this.score; this.state='over'; this.showHUD(false); this.sfx.end(); this._vsAdvance(); return;
+    }
+    this.state='over'; this.showHUD(false);
     const g=this.currentGame; const bk='neonarcade_'+g.id+'_'+this.settings.diff+'_'+this.settings.dur;
     const prev=parseInt(localStorage.getItem(bk)||'0',10); const record=this.score>prev;
     if(record){ try{ localStorage.setItem(bk,String(this.score)); }catch(e){} }
@@ -526,11 +546,66 @@ export class Engine {
       {text:this.t('hitsL')+' '+this.hits+'   ·   '+this.t('accL')+' '+acc+'%',s:34,col:'#8b93a7'}
     ]);
     this.showBoard(true);
+    const backHub=()=> (this.currentGame&&this.currentGame.special)?this.showSpecialHub():this.showHub();
     this.setButtons([
       {label:this.t('again'),color:'#2ee6d6',pos:new THREE.Vector3(-0.2,1.02,-0.85),onTrigger:()=>this._startCountdown()},
-      {label:this.t('menu'), color:'#8b93a7',pos:new THREE.Vector3(0.2,1.02,-0.85), onTrigger:()=>this.showHub()}
+      {label:this.t('menu'), color:'#8b93a7',pos:new THREE.Vector3(0.2,1.02,-0.85), onTrigger:backHub}
     ]);
     this.sfx.end(); this.speak(this.t('timeUp'));
+  }
+
+  /* ---------- Mode VS (2 joueurs, à tour de rôle) ---------- */
+  startVS(){
+    this.hub?.hide?.();
+    const pool=this.games.filter(g=>!g.dlc && !g.chooseOptions);
+    for(let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
+    const rounds=pool.slice(0, Math.min(3, pool.length));
+    this.vs={active:true, rounds, n:rounds.length, idx:0, player:0, scores:[0,0]};
+    this._vsReady();
+  }
+  _vsReady(){
+    this.state='vsready'; this.showHUD(false); this.clearField(); this.clearPopups();
+    const g=this.vs.rounds[this.vs.idx], p=this.vs.player;
+    const forced=this.settings.decor;
+    this.gameTheme=(forced&&forced!=='auto')?forced:(g.theme||'forest');
+    this.useEnvironment(this.settings.mode==='ar'?'gameAR':'gameVR');
+    this.drawBoard([
+      {text:this.t('vs'),s:44,col:'#ffd54a',gap:8},
+      {text:this.t('player')+' '+(p+1),s:96,col:p===0?'#2ee6d6':'#ff4d5e',gap:8},
+      {text:(g.name[this.lang]||g.name.fr),s:46,col:'#f4f6fb',gap:6},
+      {text:this.t('round')+' '+(this.vs.idx+1)+'/'+this.vs.n,s:34,col:'#8b93a7'}
+    ]);
+    this.showBoard(true);
+    this.setButtons([
+      {label:this.t('start'),color:'#b8f34d',pos:new THREE.Vector3(-0.2,1.02,-0.85),onTrigger:()=>this._vsBeginTurn()},
+      {label:this.t('quit'), color:'#8b93a7',pos:new THREE.Vector3(0.2,1.02,-0.85), onTrigger:()=>this.showHub()}
+    ]);
+    this.speak(this.t('player')+' '+(p+1));
+  }
+  _vsBeginTurn(){
+    const g=this.vs.rounds[this.vs.idx]; this.currentGame=g; g.init?.(this); this.clearField();
+    g.buildLayout(this,null); this._startCountdown();
+  }
+  _vsAdvance(){
+    const vs=this.vs; if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; } this.clearField();
+    if(vs.player===0){ vs.player=1; this._vsReady(); }
+    else { vs.player=0; vs.idx++; if(vs.idx<vs.n) this._vsReady(); else this._vsResults(); }
+  }
+  _vsResults(){
+    const vs=this.vs; this.state='vsover'; this.showHUD(false);
+    const a=vs.scores[0], b=vs.scores[1];
+    const verdict = a===b ? this.t('tie') : (this.t('player')+' '+(a>b?1:2)+' '+this.t('winner'));
+    this.drawBoard([
+      {text:this.t('vs'),s:40,col:'#ffd54a',gap:10},
+      {text:'J1  '+a+'   —   '+b+'  J2',s:70,col:'#f4f6fb',gap:12},
+      {text:verdict,s:58,col:a===b?'#8b93a7':(a>b?'#2ee6d6':'#ff4d5e')}
+    ]);
+    this.showBoard(true);
+    this.setButtons([
+      {label:this.t('vsAgain'),color:'#2ee6d6',pos:new THREE.Vector3(-0.2,1.02,-0.85),onTrigger:()=>this.startVS()},
+      {label:this.t('menu'),   color:'#8b93a7',pos:new THREE.Vector3(0.2,1.02,-0.85), onTrigger:()=>this.showHub()}
+    ]);
+    this.sfx.end();
   }
 
   /* ---------- Sessions (ré-entrant) ---------- */
@@ -548,10 +623,13 @@ export class Engine {
     await this.renderer.xr.setSession(session);
     this.boundedSpace=(mode==='ar')?await session.requestReferenceSpace('bounded-floor').catch(()=>null):null;
     session.addEventListener('end',()=>{ this._onSessionEnd(); },{once:true});
-    const autoPause=()=>{ if(this.state==='play') this.pause(); };
-    session.addEventListener('visibilitychange', ()=>{ if(session.visibilityState!=='visible') autoPause(); });
-    document.addEventListener('visibilitychange', ()=>{ if(document.hidden) autoPause(); });
-    addEventListener('blur', autoPause);
+    session.addEventListener('visibilitychange', ()=>{ if(session.visibilityState!=='visible' && this.state==='play') this.pause(); });
+    if(!this._autoPauseBound){
+      const autoPause=()=>{ if(this.state==='play') this.pause(); };
+      document.addEventListener('visibilitychange', ()=>{ if(document.hidden) autoPause(); });
+      addEventListener('blur', autoPause);
+      this._autoPauseBound=true;
+    }
     this.showHub();
   }
   _onSessionEnd(){
@@ -574,7 +652,7 @@ export class Engine {
     this.setButtons([
       {label:this.t('resume'),  color:'#b8f34d', pos:new THREE.Vector3(-0.2,1.16,-0.85), onTrigger:()=>this.resume()},
       {label:this.t('restart'), color:'#2ee6d6', pos:new THREE.Vector3( 0.2,1.16,-0.85), onTrigger:()=>this._startCountdown()},
-      {label:this.t('menu'),    color:'#8b93a7', pos:new THREE.Vector3(-0.2,1.0,-0.85),  onTrigger:()=>this.showHub()},
+      {label:this.t('menu'),    color:'#8b93a7', pos:new THREE.Vector3(-0.2,1.0,-0.85),  onTrigger:()=> (this.currentGame&&this.currentGame.special)?this.showSpecialHub():this.showHub()},
       {label:this.t('quit'),    color:'#8b93a7', pos:new THREE.Vector3( 0.2,1.0,-0.85),  onTrigger:()=>this.exit()}
     ]);
   }

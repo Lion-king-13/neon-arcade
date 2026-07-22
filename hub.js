@@ -45,17 +45,28 @@ export class Hub {
   render(){
     const e=this.e;
     this._clear();
+    if(!this._view) this._view='base';
     e.showHUD(false);
-    e.drawBoard([{text:'NEON ARCADE', s:78, col:'#ff2d95', gap:8},{text:e.t('choose'), s:44, col:'#2ee6d6'}]);
+    const special = this._view==='special';
+    e.drawBoard([{text:special?e.t('special'):'NEON ARCADE', s:special?60:78, col:special?'#ffd54a':'#ff2d95', gap:8},{text:e.t('choose'), s:44, col:'#2ee6d6'}]);
     e.showBoard(true);
 
-    const items=e.games.map(g=>({
-      label:(g.name[e.lang]||g.name.fr),
-      color:g.color||'#2ee6d6',
-      locked: !!g.dlc && !e.entitled('special'),
-      action:()=>e.selectGame(g)
-    }));
-    items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
+    let items;
+    if(special){
+      items=e.games.filter(g=>g.special).map(g=>({ label:(g.name[e.lang]||g.name.fr), color:g.color||'#ffd54a', locked:false, action:()=>e.selectGame(g) }));
+      items.push({label:e.t('back'), color:'#8b93a7', action:()=>{ this._view='base'; this.render(); }});
+    } else {
+      items=e.games.filter(g=>!g.special).map(g=>({
+        label:(g.name[e.lang]||g.name.fr), color:g.color||'#2ee6d6',
+        locked: !!g.dlc && !e.entitled('special'), action:()=>e.selectGame(g)
+      }));
+      // orbe Modes Spéciaux (si des modes spéciaux existent)
+      if(e.games.some(g=>g.special)){
+        items.push({ label:e.t('special'), color:'#ffd54a', locked:!e.entitled('special'), action:()=>{ this._view='special'; this.render(); } });
+      }
+      items.push({label:e.t('vs'), color:'#b8f34d', action:()=>e.startVS()});
+      items.push({label:e.t('quit'), color:'#8b93a7', action:()=>e.exit()});
+    }
     const n=items.length;
     const rows = n>6 ? 2 : 1;
     const perRow = Math.ceil(n/rows);
