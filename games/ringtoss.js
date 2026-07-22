@@ -3,8 +3,9 @@
 // pour le lancer sur les quilles. Anneau posé sur une quille = +2, quille dorée = +5.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-const G = 5.2;                 // gravité
-const CAPTURE = 0.09;          // tolérance d'enfilage
+const G = 4.6;                 // gravité
+const CAPTURE = 0.10;          // tolérance d'enfilage
+const MIN_TRAVEL = 0.55;       // distance horizontale mini pour valider (anti-dépôt)
 const RING_COL = [0x2ee6d6, 0xff4d5e];
 
 let R=null;
@@ -63,9 +64,9 @@ export default {
     const wp=new THREE.Vector3(), wq=new THREE.Quaternion(); ring.getWorldPosition(wp); ring.getWorldQuaternion(wq);
     this._holders[i].remove(ring); ring.position.copy(wp); ring.quaternion.copy(wq); engine.field.add(ring);
     const vel=new THREE.Vector3(); engine.controllerVel(i, vel);
-    // aide : composante avant du contrôleur
-    const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(wq); vel.addScaledVector(fwd, 0.6); vel.multiplyScalar(1.15); vel.y+=0.4;
-    this._rings.push({mesh:ring, vel, spin:(Math.random()-.5)*6, landed:false});
+    // aide au lancer : plus généreux + composante avant du contrôleur
+    const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(wq); vel.multiplyScalar(1.35); vel.addScaledVector(fwd, 1.1); vel.y+=0.7;
+    this._rings.push({mesh:ring, vel, spin:(Math.random()-.5)*6, landed:false, start:wp.clone()});
     engine.sfx.pick();
     this._reload[i]=0.5;
   },
@@ -77,8 +78,9 @@ export default {
       ring.vel.y -= G*dt;
       ring.mesh.position.addScaledVector(ring.vel, dt);
       ring.mesh.rotation.y += ring.spin*dt;
-      // enfilage sur une quille
-      for(const p of this._pegs){
+      // enfilage sur une quille (uniquement si l'anneau a été VRAIMENT lancé)
+      const traveled=Math.hypot(ring.mesh.position.x-ring.start.x, ring.mesh.position.z-ring.start.z);
+      if(traveled>MIN_TRAVEL) for(const p of this._pegs){
         const dx=ring.mesh.position.x-p.x, dz=ring.mesh.position.z-p.z;
         if(ring.vel.y<0 && ring.mesh.position.y < p.topY+0.03 && ring.mesh.position.y > p.baseY-0.02 && Math.hypot(dx,dz)<p.capture){
           ring.landed=true; ring.mesh.position.set(p.x, p.baseY+0.03, p.z); ring.mesh.rotation.set(Math.PI/2,0,0);

@@ -21,10 +21,20 @@ export default {
   color:'#b8f34d',
   usesSurfaces:false,
   theme:'carnival',
+  chooseOptions:true,
 
-  _pads:[], _actTimer:0,
+  _pads:[], _actTimer:0, _mode:'classic',
 
   init(engine){ res(); },
+
+  chooseOptions(engine){
+    const fr=engine.lang==='fr';
+    engine.drawBoard([{text:fr?'Dalles Réflexe':'Reflex Tiles', s:64, col:'#b8f34d', gap:10},{text:fr?'Choisis un mode':'Choose a mode', s:44, col:'#2ee6d6'}]);
+    engine.setButtons([
+      {label:fr?'CLASSIQUE':'CLASSIC', color:'#b8f34d', pos:new THREE.Vector3(-0.2,1.1,-0.85), onTrigger:()=>{ this._mode='classic'; engine._startCountdown(); }},
+      {label:'CHAOS', color:'#ff2d95', pos:new THREE.Vector3(0.2,1.1,-0.85), onTrigger:()=>{ this._mode='chaos'; engine._startCountdown(); }}
+    ]);
+  },
 
   buildLayout(engine, spots){
     this._pads.length=0;
@@ -71,8 +81,10 @@ export default {
       if(free.length){
         const p=free[(Math.random()*free.length)|0];
         let type='normal'; const rnd=Math.random();
-        const badChance={easy:0.10,normal:0.16,hard:0.24}[diff];
-        if(rnd<badChance) type='bad'; else if(rnd<badChance+0.10) type='gold';
+        if(this._mode==='chaos'){
+          const badChance={easy:0.10,normal:0.16,hard:0.24}[diff];
+          if(rnd<badChance) type='bad'; else if(rnd<badChance+0.10) type='gold';
+        }
         const life={easy:[1.4,1.9],normal:[1.0,1.5],hard:[0.7,1.1]}[diff];
         this._activate(p, type, life[0]+Math.random()*(life[1]-life[0]));
       }

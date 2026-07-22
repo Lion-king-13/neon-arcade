@@ -4,10 +4,12 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 const BASE_STRINGS = {
   fr:{ score:"SCORE", combo:"COMBO", time2:"TEMPS", again:"REJOUER", menu:"MENU", quit:"QUITTER", play:"JOUER",
        go:"GO", timeUp:"TEMPS !", result:"TERMINÉ", newbest:"NOUVEAU RECORD !", hitsL:"Touchées", accL:"Précision",
-       best:"Meilleur", scanning:"Analyse de la zone…", choose:"Choisis un jeu", ready:"Prêt" },
+       best:"Meilleur", scanning:"Analyse de la zone…", choose:"Choisis un jeu", ready:"Prêt",
+       pause:"PAUSE", resume:"REPRENDRE", restart:"RECOMMENCER" },
   en:{ score:"SCORE", combo:"COMBO", time2:"TIME", again:"PLAY AGAIN", menu:"MENU", quit:"QUIT", play:"PLAY",
        go:"GO", timeUp:"TIME!", result:"FINISHED", newbest:"NEW RECORD!", hitsL:"Hits", accL:"Accuracy",
-       best:"Best", scanning:"Scanning your area…", choose:"Choose a game", ready:"Ready" }
+       best:"Best", scanning:"Scanning your area…", choose:"Choose a game", ready:"Ready",
+       pause:"PAUSED", resume:"RESUME", restart:"RESTART" }
 };
 
 export class Engine {
@@ -22,7 +24,7 @@ export class Engine {
     this.score=0; this.combo=0; this.hits=0; this.misses=0; this.timeLeft=0;
     this.countT=0; this.countN=3; this.scanT=0; this.scanBest=[];
 
-    this.buttons=[]; this.popups=[]; this.particles=[]; this.fireflies=[];
+    this.buttons=[]; this.popups=[]; this.particles=[]; this.fireflies=[]; this._pausePrev=false;
     this.xrSession=null; this.boundedSpace=null; this.vrReady=false; this.arReady=false;
 
     this._tmp=new THREE.Vector3(); this._tmp2=new THREE.Vector3(); this._vq=new THREE.Quaternion(); this._q=new THREE.Quaternion();
@@ -252,30 +254,26 @@ export class Engine {
     const c=this.controllers[i]; c.getWorldPosition(origin);
     dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
   }
-  // Filet de capture néon. Ouverture (cerceau) à l'avant, poche vers la main. userData.cp = capture.
+  // Filet de capture néon (poche maillée au-delà du cerceau). userData.cp = capture (dans le cerceau).
   makeNet(i){
     const T=this.THREE; const color=[0x2ee6d6,0xff4d5e][i]; const g=new T.Group();
     const silver=new T.MeshStandardMaterial({color:0xd7dce4, roughness:.3, metalness:.85});
     const black=new T.MeshStandardMaterial({color:0x14161c, roughness:.6, metalness:.2});
-    // manche
+    // manche télescopique
     const grip=new T.Mesh(new T.CylinderGeometry(0.013,0.013,0.10,12), black); grip.rotation.x=Math.PI/2; grip.position.z=0.03; g.add(grip);
-    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.14,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.10; g.add(seg1);
-    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.14,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.24; g.add(seg2);
-    // cerceau (bouche) tout à l'avant
-    const hoop=new T.Mesh(new T.TorusGeometry(0.115,0.008,12,40), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.8, roughness:.4, metalness:.3}));
-    hoop.position.z=-0.38; g.add(hoop);
-    // poche : anneaux qui rétrécissent du cerceau (avant) vers la main
-    const ringMat=new T.MeshBasicMaterial({color, transparent:true, opacity:.6});
-    const rings=6;
-    for(let k=1;k<=rings;k++){
-      const rad=0.108*(1 - k/(rings+1));
-      const rg=new T.Mesh(new T.TorusGeometry(rad, 0.0035, 8, 24), ringMat);
-      rg.position.z=-0.36 + k*0.024; g.add(rg);   // vers +z (main)
-    }
-    // voile translucide : base (large) au cerceau, pointe vers la main
-    const veil=new T.Mesh(new T.ConeGeometry(0.112,0.16,18,4,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.12, side:T.DoubleSide}));
-    veil.rotation.x=Math.PI/2; veil.position.z=-0.30; g.add(veil);
-    const cp=new T.Object3D(); cp.position.set(0,0,-0.37); g.add(cp); g.userData.cp=cp;
+    const seg1=new T.Mesh(new T.CylinderGeometry(0.011,0.012,0.14,12), silver); seg1.rotation.x=Math.PI/2; seg1.position.z=-0.09; g.add(seg1);
+    const seg2=new T.Mesh(new T.CylinderGeometry(0.009,0.010,0.13,12), silver); seg2.rotation.x=Math.PI/2; seg2.position.z=-0.22; g.add(seg2);
+    // cerceau (la bouche) au bout du manche
+    const hoop=new T.Mesh(new T.TorusGeometry(0.11,0.009,14,44), new T.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.85, roughness:.4, metalness:.3}));
+    hoop.position.z=-0.34; g.add(hoop);
+    // poche MAILLÉE au-delà du cerceau (vers l'avant) : voile léger + maille fine néon
+    const fill=new T.Mesh(new T.ConeGeometry(0.11,0.19,22,1,true), new T.MeshBasicMaterial({color, transparent:true, opacity:.10, side:T.DoubleSide}));
+    fill.rotation.x=-Math.PI/2; fill.position.z=-0.435; g.add(fill);
+    const mesh=new T.Mesh(new T.ConeGeometry(0.108,0.185,22,7,true), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.55}));
+    mesh.rotation.x=-Math.PI/2; mesh.position.z=-0.433; g.add(mesh);
+    // fond arrondi pour fermer la poche
+    const bottom=new T.Mesh(new T.SphereGeometry(0.03,10,8), new T.MeshBasicMaterial({color, wireframe:true, transparent:true, opacity:.5})); bottom.position.z=-0.52; g.add(bottom);
+    const cp=new T.Object3D(); cp.position.set(0,0,-0.35); g.add(cp); g.userData.cp=cp;   // capture au niveau du cerceau
     return g;
   }
   // Canne à crochet (pêche aux canards). userData.cp = pointe du crochet.
@@ -551,6 +549,7 @@ export class Engine {
     await this.renderer.xr.setSession(session);
     this.boundedSpace=(mode==='ar')?await session.requestReferenceSpace('bounded-floor').catch(()=>null):null;
     session.addEventListener('end',()=>{ this._onSessionEnd(); },{once:true});
+    session.addEventListener('visibilitychange',()=>{ if(session.visibilityState!=='visible' && this.state==='play') this.pause(); });
     this.showHub();
   }
   _onSessionEnd(){
@@ -564,6 +563,28 @@ export class Engine {
   }
   exit(){ if(this.xrSession){ try{ this.xrSession.end(); }catch(e){ this._onSessionEnd(); } } }
 
+  /* ---------- Pause ---------- */
+  pause(){
+    if(this.state!=='play') return;
+    this.state='paused'; this.showHUD(false);
+    this.drawBoard([{text:this.t('pause'), s:96, col:'#2ee6d6'}]);
+    this.showBoard(true);
+    this.setButtons([
+      {label:this.t('resume'),  color:'#b8f34d', pos:new THREE.Vector3(-0.2,1.16,-0.85), onTrigger:()=>this.resume()},
+      {label:this.t('restart'), color:'#2ee6d6', pos:new THREE.Vector3( 0.2,1.16,-0.85), onTrigger:()=>this._startCountdown()},
+      {label:this.t('menu'),    color:'#8b93a7', pos:new THREE.Vector3(-0.2,1.0,-0.85),  onTrigger:()=>this.showHub()},
+      {label:this.t('quit'),    color:'#8b93a7', pos:new THREE.Vector3( 0.2,1.0,-0.85),  onTrigger:()=>this.exit()}
+    ]);
+  }
+  resume(){ if(this.state!=='paused') return; this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); }
+  _pollPause(frame){
+    if(!frame || !frame.session) return;
+    let pressed=false;
+    for(const src of frame.session.inputSources){ const gp=src.gamepad; if(gp && gp.buttons){ if((gp.buttons[4]&&gp.buttons[4].pressed)||(gp.buttons[5]&&gp.buttons[5].pressed)) pressed=true; } }
+    if(pressed && !this._pausePrev){ if(this.state==='play') this.pause(); else if(this.state==='paused') this.resume(); }
+    this._pausePrev=pressed;
+  }
+
   /* ---------- Boucle ---------- */
   _render(frame){
     const dt=Math.min(this.clock.getDelta(),0.05); const time=this.clock.elapsedTime;
@@ -573,6 +594,7 @@ export class Engine {
     }
     if(this.renderer.xr.isPresenting){ this.renderer.xr.getCamera().getWorldQuaternion(this._vq); } else this.camera.getWorldQuaternion(this._vq);
 
+    this._pollPause(frame);
     this._updateParticles(dt);
     if(this.env.visible) this._updateFireflies(time);
     if(this.carnival.visible) this._updateCarnival(time);
