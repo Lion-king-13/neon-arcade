@@ -87,7 +87,14 @@ const ducks = {
 
   start(engine){
     this._hooks=[];
-    if(this.night){ this._dim=true; if(engine.hemi) engine.hemi.intensity=0.05; if(engine.key) engine.key.intensity=0.03; if(engine.scene.fog) engine.scene.fog.density=Math.max(engine.scene.fog.density,0.13); if(engine.scene.background&&engine.scene.background.isColor===undefined) engine.scene.background=null; if(this._nightRims) for(const m of this._nightRims) m.material.emissiveIntensity=1.6; }
+    if(this.night){
+      this._dim=true;
+      if(engine.hemi) engine.hemi.intensity=0.02;
+      if(engine.key) engine.key.intensity=0.01;
+      engine.scene.background=new THREE.Color(0x01030a);
+      engine.scene.fog=new THREE.FogExp2(0x01030a, 0.18);
+      if(engine.meadow) engine.meadow.visible=false;
+    }
     engine.setTool((i)=>{ const h=engine.makeHook(i); if(this.night){ const lamp=new THREE.SpotLight(0xffeeba, 6, 3.2, 0.5, 0.6, 1.2); lamp.position.set(0,0,-0.05); const tgt=new THREE.Object3D(); tgt.position.set(0,-0.3,-1.2); h.add(tgt); lamp.target=tgt; h.add(lamp); } this._hooks[i]=h; return h; });
     for(const o of this._active.slice()) engine.field.remove(o.group);
     if(this._ripples) for(const rp of this._ripples) engine.field.remove(rp.m);
@@ -112,7 +119,13 @@ const ducks = {
       if(rnd<badChance && this._bombCount()<2) type='bad';
       else if(rnd<badChance+0.10) type='gold';
     }
-    const g=makeDuck(type); if(this.night) g.traverse(o=>{ if(o.material&&o.material.emissive){ o.material=o.material.clone(); o.material.emissiveIntensity=1.4; } }); engine.field.add(g);
+    const g=makeDuck(type);
+    if(this.night){
+      g.traverse(o=>{ if(o.material&&o.material.emissive && o!==g.userData.ring){ o.material=o.material.clone(); o.material.emissiveIntensity=(type==='gold'?1.1:0.55); } });
+      if(g.userData.ring){ const c=g.userData.ring.material.color.getHex();
+        g.userData.ring.material=new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:0.16}); }
+    }
+    engine.field.add(g);
     const ang=Math.random()*Math.PI*2, rad=IN_R+0.1+Math.random()*(OUT_R-IN_R-0.2);
     const life = type==='bad' ? (this.fast?4:5.5) : (this.fast ? (4.5+Math.random()*2) : (8+Math.random()*3));
     const wBase=this.fast?0.30:0.12, wRng=this.fast?0.45:0.28;
@@ -198,7 +211,7 @@ const ducks = {
   },
 
   cleanup(engine){
-    if(this.night && this._dim){ if(engine.hemi) engine.hemi.intensity=engine._lightBase.hemi; if(engine.key) engine.key.intensity=engine._lightBase.key; engine.useEnvironment(engine.settings.mode==='ar'?'gameAR':'gameVR'); this._dim=false; }
+    if(this.night && this._dim){ if(engine.hemi) engine.hemi.intensity=engine._lightBase.hemi; if(engine.key) engine.key.intensity=engine._lightBase.key; if(engine.meadow) engine.meadow.visible=true; engine.useEnvironment(engine.settings.mode==='ar'?'gameAR':'gameVR'); this._dim=false; }
     for(const o of this._active.slice()) engine.field.remove(o.group);
     if(this._ripples){ for(const rp of this._ripples) engine.field.remove(rp.m); this._ripples=[]; }
     this._active.length=0; this._hooked=[null,null]; this._basket=null;

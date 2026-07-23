@@ -64,12 +64,12 @@ function makeGrub(gold){
   [-1,1].forEach(sx=>{
     const e=new THREE.Mesh(r.eyeGeo,M.eye); e.position.set(sx*hR*0.42, hR*0.60, hR*0.30);
     const p=new THREE.Mesh(r.pupGeo,M.pupil); p.position.set(0,0.014,0); e.add(p); hr.add(e);
-    const ant=new THREE.Mesh(r.antGeo,M.ant); ant.position.set(sx*hR*0.34, hR*0.86, hR*0.18);
-    ant.rotation.set(0.32,0,sx*0.40);
+    const ant=new THREE.Mesh(r.antGeo,M.ant); ant.position.set(sx*hR*0.30, hR*0.34, hR*0.86);
+    ant.rotation.set(-0.55,0,sx*0.40);
     const tip=new THREE.Mesh(r.antTipGeo,M.antTip); tip.position.set(0,0.035,0); ant.add(tip); hr.add(ant);
   });
   g.add(hr); wig.push(hr);
-  const nose=new THREE.Mesh(r.sphereGeo, M.nose); nose.scale.setScalar(hR*0.24); nose.position.set(0, hR*0.30, hR*0.86); hr.add(nose);
+  const nose=new THREE.Mesh(r.sphereGeo, M.nose); nose.scale.setScalar(hR*0.24); nose.position.set(0, hR*0.88, hR*0.14); hr.add(nose);
   for(let i=1;i<N-1;i+=2){
     const s=i/(N-1), yy=L*s, zz=A*s*s;
     [-1,1].forEach(sx=>{ const leg=new THREE.Mesh(r.sphereGeo,M.leg); leg.scale.setScalar(RAD*0.28);
@@ -87,7 +87,7 @@ function makeBeetle(){
     const sp=new THREE.Mesh(r.sphereGeo,M.spot); sp.scale.set(0.016,0.012,0.006); sp.position.set(x,L+y,0.05); g.add(sp);
   });
   const head=new THREE.Mesh(r.sphereGeo,M.shell); head.scale.setScalar(0.045); head.position.set(0,L+0.075,0); g.add(head);
-  const bnose=new THREE.Mesh(r.sphereGeo,M.nose); bnose.scale.setScalar(0.013); bnose.position.set(0,L+0.070,0.042); g.add(bnose);
+  const bnose=new THREE.Mesh(r.sphereGeo,M.nose); bnose.scale.setScalar(0.013); bnose.position.set(0,L+0.052,0.041); g.add(bnose);
   [-1,1].forEach(sx=>{
     const e=new THREE.Mesh(r.eyeGeo,M.eye); e.position.set(sx*0.02,L+0.09,0.02);
     const p=new THREE.Mesh(r.pupGeo,M.pupil); p.position.set(0,0.012,0); e.add(p); g.add(e);

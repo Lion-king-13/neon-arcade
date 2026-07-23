@@ -90,11 +90,15 @@ const boss = {
              : kind==='malus' ? new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0xff4d5e, emissiveIntensity:.8, roughness:.4})
              : r.lure;
     const m=new THREE.Mesh(new THREE.IcosahedronGeometry(0.10,0), mat); g.add(m); g.userData.kind=kind;
-    const a=Math.random()*Math.PI*2;
     g.position.copy(BOSS_POS);
     engine.field.add(g);
-    const vx=Math.cos(a)*(0.5+Math.random()*0.5), vy=Math.sin(a)*0.35+0.25;
-    this._lures.push({group:g, pos:g.position, v:new THREE.Vector3(vx,vy,0.9+Math.random()*0.5), radius:0.11, t:0, kind:g.userData.kind});
+    // vise la tête du joueur (léger décalage : il faut se pencher pour esquiver)
+    const head=engine.headPos(new THREE.Vector3());
+    const aim=new THREE.Vector3(head.x+(Math.random()-0.5)*0.55, head.y+(Math.random()-0.5)*0.45, head.z+0.10);
+    const dirv=aim.sub(BOSS_POS).normalize();
+    const sp=1.5+Math.random()*0.7+this._level*0.12;
+    const vx=dirv.x*sp, vy=dirv.y*sp+0.45;
+    this._lures.push({group:g, pos:g.position, v:new THREE.Vector3(vx,vy,dirv.z*sp), radius:0.11, t:0, kind:g.userData.kind});
   },
   _rmLure(engine,l){ engine.field.remove(l.group); const i=this._lures.indexOf(l); if(i>=0) this._lures.splice(i,1); },
 
@@ -155,13 +159,13 @@ const boss = {
     this._lureTimer-=dt;
     if(this._lureTimer<=0 && this._lures.length<3+this._level){
       this._spawnLure(engine);
-      this._lureTimer=Math.max(0.6, 2.2-this._level*0.2)*(0.7+Math.random()*0.6);
+      this._lureTimer=Math.max(0.45, 1.7-this._level*0.18)*(0.7+Math.random()*0.5);
     }
     const head=engine.headPos(new THREE.Vector3());
     for(const l of this._lures.slice()){
       l.t+=dt; l.v.y-=0.5*dt; l.pos.addScaledVector(l.v,dt); l.group.position.copy(l.pos);
       l.group.rotation.x+=dt*2; l.group.rotation.y+=dt*1.4;
-      if(l.pos.distanceTo(head)<0.32){        // touché ! il fallait esquiver
+      if(l.pos.distanceTo(head)<0.30){        // touché ! il fallait esquiver
         if(l.kind==='bonus'){ engine.good(l.pos.clone(), 4, '#b8f34d'); }
         else { engine.bad(l.pos.clone(), l.kind==='malus'?5:3); engine.burst(l.pos.clone(), 0xff4d5e); }
         this._rmLure(engine,l); continue;
