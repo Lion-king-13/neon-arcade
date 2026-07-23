@@ -254,7 +254,28 @@ export class Engine {
   controllerPos(i,out){ this.controllers[i].getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
   // Position monde d'un élément d'outil (respecte le mode miroir).
   toolPos(obj,out){ obj.getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
-  setMirror(on){ this.mirror=!!on; this.field.scale.x = on?-1:1; }
+  setMirror(on){
+    on=!!on; if(on===!!this.mirror) return;
+    this.mirror=on; this.field.scale.x=1;
+    if(on && !this._mrig){
+      this._mrig=new THREE.Group(); this._mrig.scale.x=-1; this.scene.add(this._mrig);
+      this._mray=[]; this._mgrip=[];
+      for(let i=0;i<2;i++){ const a=new THREE.Object3D(), b=new THREE.Object3D(); this._mrig.add(a); this._mrig.add(b); this._mray.push(a); this._mgrip.push(b); }
+    }
+    if(this._mrig) this._mrig.visible=on;
+    // les maillets par défaut suivent aussi le reflet
+    for(let i=0;i<this.malletVisual.length;i++){
+      const v=this.malletVisual[i];
+      if(on) this._mgrip[i].add(v); else this.grips[i].add(v);
+    }
+  }
+  _updateMirrorRig(){
+    if(!this.mirror || !this._mrig) return;
+    for(let i=0;i<2;i++){
+      if(this.controllers[i]){ this._mray[i].position.copy(this.controllers[i].position); this._mray[i].quaternion.copy(this.controllers[i].quaternion); }
+      if(this.grips[i]){ this._mgrip[i].position.copy(this.grips[i].position); this._mgrip[i].quaternion.copy(this.grips[i].quaternion); }
+    }
+  }
   controllerVel(i,out){ out.copy(this._ctrlVel[i]); if(this.mirror) out.x=-out.x; return out; }
   headPos(out){ if(this.renderer.xr.isPresenting) this.renderer.xr.getCamera().getWorldPosition(out); else this.camera.getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
   // Rayon de visée : remplit origin (position) et dir (direction -Z monde) du contrôleur i.
@@ -316,7 +337,7 @@ export class Engine {
   // Échange l'outil en main. space='grip' (tenu) ou 'ray' (aligné sur la visée).
   setTool(fn, space){
     this.clearTool();
-    const parents = space==='ray' ? this.controllers : this.grips;
+    const parents = this.mirror ? (space==='ray' ? this._mray : this._mgrip) : (space==='ray' ? this.controllers : this.grips);
     for(let i=0;i<parents.length;i++){ this.malletVisual[i].visible=false; const tool=fn(i); if(tool){ parents[i].add(tool); this._tools.push(tool); } }
   }
   clearTool(){
@@ -334,7 +355,7 @@ export class Engine {
   }
   _rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
   _buildPanels(){
-    this.hud=this._makePanel(0.94,0.27,940); this.hud.mesh.position.set(0,2.05,-0.72); this.scene.add(this.hud.mesh); this.hud.mesh.visible=false;
+    this.hud=this._makePanel(1.08,0.33,1080); this.hud.mesh.position.set(0,1.92,-1.35); this.scene.add(this.hud.mesh); this.hud.mesh.visible=false;
     this.board=this._makePanel(1.1,0.74,1000); this.board.mesh.position.set(0,1.5,-1.25); this.scene.add(this.board.mesh); this.board.mesh.visible=false;
   }
   drawHUD(){
@@ -344,7 +365,8 @@ export class Engine {
     const cell=(label,val,x,col)=>{ c.textAlign='center'; c.fillStyle='#8b93a7'; c.font='700 26px Segoe UI, sans-serif'; c.fillText(label,x,56); c.fillStyle=col; c.font='900 74px Segoe UI, sans-serif'; c.fillText(val,x,136); };
     cell(this.t('score'),String(this.score),W*0.2,'#f4f6fb');
     cell(this.t('combo'),'x'+this.combo,W*0.5,'#b8f34d');
-    cell(this.t('time2'),Math.max(0,Math.ceil(this.timeLeft))+'s',W*0.8,this.timeLeft<=5?'#ff4d5e':'#2ee6d6');
+    cell(this.t('time2'),Math.max(0,Math.ceil(this.timeLeft))+'s',W*0.8,(!this.currentGame||!this.currentGame.endless)&&this.timeLeft<=5?'#ff4d5e':'#2ee6d6');
+    if(this.hudExtra){ c.textAlign='center'; c.fillStyle='#ffd54a'; c.font='800 30px Segoe UI, sans-serif'; c.fillText(this.hudExtra, W/2, H-16); }
     this.hud.tex.needsUpdate=true;
   }
   drawBoard(lines){
@@ -528,6 +550,7 @@ export class Engine {
       reflex:{fr:'Tape la dalle allumée, vite !',en:'Slap the lit tile, fast!'},
       fishing:{fr:'Lance, attends, ferre au bon moment.',en:'Cast, wait, hook in time.'},
       ringtoss:{fr:'Lance les anneaux sur les quilles.',en:'Toss rings onto the pegs.'},
+      dodge:{fr:'Esquive le rouge, bloque le vert.',en:'Dodge red, block green.'},
       skeet:{fr:'Tire les plateaux au vol.',en:'Shoot clays in flight.'},
       reflexchaos:{fr:'Dalles + dorées & rouges à éviter.',en:'Tiles + gold & red to avoid.'},
       sniper:{fr:'Cibles petites & lointaines, sans visée.',en:'Small far targets, no aim beam.'},
@@ -536,7 +559,8 @@ export class Engine {
       fever:{fr:'La fièvre monte ! Capsules de pouvoir.',en:'Fever rising! Power capsules.'},
       gallery:{fr:'Cibles variées : canard, peluche, cloche…',en:'Varied targets: duck, teddy, bell…'},
       horde:{fr:'Vagues sans fin, 3 vies. Tiens bon !',en:'Endless waves, 3 lives. Hold on!'},
-      boss:{fr:'Vise les points faibles, évite les leurres.',en:'Hit weak points, avoid decoys.'},
+      boss:{fr:'Vise les points faibles, esquive les rochers.',en:'Hit weak points, dodge the rocks.'},
+      bosschaos:{fr:'Boss + bonus verts et malus rouges.',en:'Boss + green bonus, red malus.'},
       ducksnight:{fr:'Pénombre : canards phosphorescents.',en:'Darkness: glowing ducks.'},
       ducksbasket:{fr:'Le panier se déplace, anticipe !',en:'The basket moves, anticipate!'},
       ducksstorm:{fr:'L\'eau tangue et bouscule les canards.',en:'Choppy water tosses the ducks.'},
@@ -618,7 +642,7 @@ export class Engine {
     this.state='count'; this.countT=0; this.countN=3;
     this.drawBoard([{text:'3',s:220,col:'#2ee6d6'}]); this.sfx.count(); this.speak(this.t('ready'));
   }
-  _startPlay(){ this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); this.timeLeft=(this.currentGame&&this.currentGame.endless)?0:this.settings.dur; this.sfx.go(); this.speak(this.t('go')); }
+  _startPlay(){ this.hudExtra=null; this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); this.timeLeft=(this.currentGame&&this.currentGame.endless)?0:this.settings.dur; this.sfx.go(); this.speak(this.t('go')); }
   _endGame(){
     this.currentGame.onEnd?.(this);
     if(this.vs && this.vs.active){
@@ -804,6 +828,7 @@ export class Engine {
     if(this.renderer.xr.isPresenting){ this.renderer.xr.getCamera().getWorldQuaternion(this._vq); } else this.camera.getWorldQuaternion(this._vq);
 
     this._pollPause(frame);
+    this._updateMirrorRig();
     if(this.xrSession && this.state==='play'){ const vs=this.xrSession.visibilityState; if(vs && vs!=='visible') this.pause(); }
     this._updateParticles(dt);
     if(this.env.visible) this._updateFireflies(time);

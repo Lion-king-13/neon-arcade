@@ -80,7 +80,7 @@ export default {
     }
     this._spawnTimer=0.4;
   },
-  _tip(engine,i,out){ if(this._rods[i]) this._rods[i].userData.tip.getWorldPosition(out); else out.set(0,1,-0.4); return out; },
+  _tip(engine,i,out){ if(this._rods[i]) engine.toolPos(this._rods[i].userData.tip, out); else out.set(0,1,-0.4); return out; },
 
   onTrigger(i, engine){
     const h=this._hands[i]; if(!h) return;
@@ -104,10 +104,11 @@ export default {
 
   _spawn(engine){
     let type='normal'; const rnd=Math.random();
-    if(rnd<0.10) type='boot'; else if(rnd<0.22) type='gold';
+    const boots=this._fish.filter(f=>f.type==='boot').length;
+    if(rnd<0.10 && boots<2) type='boot'; else if(rnd<0.22) type='gold';
     const g=makeFish(type); const a=Math.random()*Math.PI*2, rad=Math.random()*(POND_R-0.16);
     g.position.set(POND.x+Math.cos(a)*rad, POND.y-0.06, POND.z+Math.sin(a)*rad); engine.field.add(g);
-    this._fish.push({group:g, type, ang:a, rad, w:(Math.random()<0.5?1:-1)*(0.2+Math.random()*0.3), ph:Math.random()*6, state:'swim', tt:0, hand:-1});
+    this._fish.push({group:g, type, ang:a, rad, w:(Math.random()<0.5?1:-1)*(0.2+Math.random()*0.3), ph:Math.random()*6, state:'swim', tt:0, life:(type==='boot'?7:13)+Math.random()*3, age:0, hand:-1});
   },
   _popFish(engine,f){ engine.field.remove(f.group); const i=this._fish.indexOf(f); if(i>=0) this._fish.splice(i,1); },
 
@@ -132,7 +133,8 @@ export default {
     this._spawnTimer-=dt; const maxFish={easy:3,normal:4,hard:5}[engine.settings.diff];
     if(this._spawnTimer<=0 && this._fish.length<maxFish){ this._spawn(engine); this._spawnTimer={easy:1.2,normal:0.9,hard:0.7}[engine.settings.diff]*(0.6+Math.random()*0.7); }
     for(const f of this._fish.slice()){
-      f.tt+=dt;
+      f.tt+=dt; f.age+=dt;
+      if(f.state==='swim' && f.age>f.life){ const h2=this._hands[f.hand]; if(h2) h2.biteFish=null; this._popFish(engine,f); continue; }
       // reflet de base / éclat quand ça mord
       if(f.group.userData.mat){
         const biting=(f.state==='bite');

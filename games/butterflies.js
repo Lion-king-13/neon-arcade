@@ -69,7 +69,7 @@ function makeButterfly(type){
   for(let i=0;i<3;i++){ const s=new THREE.Mesh(r.seg, bodyMat); const sc=0.014-(i*0.002); s.scale.set(sc,sc,sc*1.4); s.position.z=0.02-i*0.02; g.add(s); }
   if(isBee){ for(let k=0;k<2;k++){ const st=new THREE.Mesh(r.seg, r.stripe); st.scale.set(0.0135,0.0135,0.004); st.position.z=0.0 - k*0.02; g.add(st); } }
   // antennes dressées (vers le haut/avant)
-  [-1,1].forEach(sx=>{ const a=new THREE.Mesh(r.antGeo, r.ant); a.position.set(sx*0.006,0.012,0.05); a.rotation.set(0.55,0,sx*0.3); g.add(a);
+  [-1,1].forEach(sx=>{ const a=new THREE.Mesh(r.antGeo, r.ant); a.position.set(sx*0.007,0.016,0.045); a.rotation.set(0.18,0,-sx*0.42); g.add(a);
     const tip=new THREE.Mesh(new THREE.SphereGeometry(0.005,6,6), r.ant); tip.position.set(0,0.016,0); a.add(tip); });
   // dard des abeilles (à l'arrière)
   if(isBee){ const sting=new THREE.Mesh(new THREE.ConeGeometry(0.0045,0.020,7), r.ant); sting.rotation.x=-Math.PI/2; sting.position.set(0,0,-0.036); g.add(sting); }
@@ -86,6 +86,18 @@ function makeButterfly(type){
   return g;
 }
 
+function makeSwatter(){
+  const g=new THREE.Group(); const col=0xff4d5e;
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.012,0.16,10), new THREE.MeshStandardMaterial({color:0x14161c, roughness:.6}));
+  handle.rotation.x=Math.PI/2; handle.position.z=-0.04; g.add(handle);
+  const frame=new THREE.Mesh(new THREE.TorusGeometry(0.085,0.008,10,28), new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:.9, roughness:.4}));
+  frame.rotation.x=Math.PI/2; frame.position.z=-0.21; g.add(frame);
+  const pad=new THREE.Mesh(new THREE.CircleGeometry(0.082,20), new THREE.MeshBasicMaterial({color:col, wireframe:true, transparent:true, opacity:.6}));
+  pad.rotation.x=Math.PI/2; pad.position.z=-0.21; g.add(pad);
+  const cp=new THREE.Object3D(); cp.position.set(0,0,-0.21); g.add(cp); g.userData.cp=cp;
+  return g;
+}
+
 const butterflies = {
   id:'butterflies',
   name:{fr:'Attrape-Papillons', en:'Butterfly Catch'},
@@ -93,6 +105,7 @@ const butterflies = {
   usesSurfaces:false,
   theme:'meadow',
   swarm:false, hive:false,
+  _swat:[],
 
   _active:[], _spawnTimer:0, _nets:[],
 
@@ -101,7 +114,9 @@ const butterflies = {
 
   start(engine){
     this._nets=[];
-    engine.setTool((i)=>{ const n=engine.makeNet(i); this._nets[i]=n; return n; });
+    this._swat=[];
+    if(this.hive){ engine.setTool((i)=>{ if(i===0){ const n=engine.makeNet(i); this._nets[0]=n; return n; } const s=makeSwatter(); this._swat[1]=s; return s; }); }
+    else engine.setTool((i)=>{ const n=engine.makeNet(i); this._nets[i]=n; return n; });
     for(const o of this._active.slice()) engine.field.remove(o.group);
     this._active.length=0; this._spawnTimer=0.5;
   },
@@ -164,6 +179,7 @@ const butterflies = {
         o.group.rotation.y = cur + diff*Math.min(1,dt*4); }
       o.prev.copy(o.group.position);
     }
+    if(this.hive) this._swatPass(engine);
     // capture au filet
     for(const net of this._nets){
       if(!net) continue;
@@ -189,9 +205,24 @@ const butterflies = {
     }
   },
 
+  _swatPass(engine){
+    for(const sw of this._swat){ if(!sw) continue;
+      engine.toolPos(sw.userData.cp, engine._tmp2);
+      for(const o of this._active){
+        if(o.caught) continue;
+        if(engine._tmp2.distanceTo(o.group.position) < CATCH_R+0.03){
+          o.caught=true; const pos=o.group.position.clone();
+          if(o.type==='bad'){ engine.good(pos, 2, '#ffd54a'); engine.burst(pos, 0xffd54a); }
+          else engine.bad(pos, 2);
+          this._pop(engine,o);
+        }
+      }
+    }
+  },
+
   cleanup(engine){
     for(const o of this._active.slice()) engine.field.remove(o.group);
-    this._active.length=0; this._chain=1; this._lastCatch=-9;
+    this._active.length=0; this._chain=1; this._lastCatch=-9; this._swat=[];
     engine.clearTool();
   }
 };

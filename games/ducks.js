@@ -73,7 +73,10 @@ const ducks = {
     const r=res();
     const water=new THREE.Mesh(new THREE.RingGeometry(IN_R, OUT_R, 48), r.water);
     water.rotation.x=-Math.PI/2; water.position.set(0,WATER_Y,0); engine.field.add(water); this._water=water;
-    [IN_R,OUT_R].forEach(rad=>{ const rim=new THREE.Mesh(new THREE.TorusGeometry(rad,0.02,10,64), r.rim); rim.rotation.x=-Math.PI/2; rim.position.set(0,WATER_Y,0); engine.field.add(rim); });
+    this._nightRims=[];
+    [IN_R,OUT_R].forEach(rad=>{ const mat=this.night? new THREE.MeshStandardMaterial({color:0x2ee6d6, emissive:0x2ee6d6, emissiveIntensity:1.6, roughness:.4}) : r.rim;
+      const rim=new THREE.Mesh(new THREE.TorusGeometry(rad,this.night?0.026:0.02,10,64), mat); rim.rotation.x=-Math.PI/2; rim.position.set(0,WATER_Y,0); engine.field.add(rim); this._nightRims.push(rim); });
+    if(this.night){ water.material=new THREE.MeshStandardMaterial({color:0x05202a, emissive:0x041a24, emissiveIntensity:.35, roughness:.4, transparent:true, opacity:.9, side:THREE.DoubleSide}); }
     // panier
     const b=new THREE.Group();
     const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.12,0.2,16,1,true), r.basketMat); cyl.position.y=0; b.add(cyl);
@@ -84,7 +87,7 @@ const ducks = {
 
   start(engine){
     this._hooks=[];
-    if(this.night){ this._dim=true; if(engine.hemi) engine.hemi.intensity=0.16; if(engine.key) engine.key.intensity=0.12; if(engine.scene.fog) engine.scene.fog.density=Math.max(engine.scene.fog.density,0.10); }
+    if(this.night){ this._dim=true; if(engine.hemi) engine.hemi.intensity=0.05; if(engine.key) engine.key.intensity=0.03; if(engine.scene.fog) engine.scene.fog.density=Math.max(engine.scene.fog.density,0.13); if(engine.scene.background&&engine.scene.background.isColor===undefined) engine.scene.background=null; if(this._nightRims) for(const m of this._nightRims) m.material.emissiveIntensity=1.6; }
     engine.setTool((i)=>{ const h=engine.makeHook(i); if(this.night){ const lamp=new THREE.SpotLight(0xffeeba, 6, 3.2, 0.5, 0.6, 1.2); lamp.position.set(0,0,-0.05); const tgt=new THREE.Object3D(); tgt.position.set(0,-0.3,-1.2); h.add(tgt); lamp.target=tgt; h.add(lamp); } this._hooks[i]=h; return h; });
     for(const o of this._active.slice()) engine.field.remove(o.group);
     if(this._ripples) for(const rp of this._ripples) engine.field.remove(rp.m);

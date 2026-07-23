@@ -64,12 +64,12 @@ function makeGrub(gold){
   [-1,1].forEach(sx=>{
     const e=new THREE.Mesh(r.eyeGeo,M.eye); e.position.set(sx*hR*0.42, hR*0.60, hR*0.30);
     const p=new THREE.Mesh(r.pupGeo,M.pupil); p.position.set(0,0.014,0); e.add(p); hr.add(e);
-    const ant=new THREE.Mesh(r.antGeo,M.ant); ant.position.set(sx*hR*0.30, hR*0.15, hR*0.62);
-    ant.rotation.set(1.1,0,sx*0.35);
+    const ant=new THREE.Mesh(r.antGeo,M.ant); ant.position.set(sx*hR*0.34, hR*0.86, hR*0.18);
+    ant.rotation.set(0.32,0,sx*0.40);
     const tip=new THREE.Mesh(r.antTipGeo,M.antTip); tip.position.set(0,0.035,0); ant.add(tip); hr.add(ant);
   });
   g.add(hr); wig.push(hr);
-  const nose=new THREE.Mesh(r.sphereGeo, M.nose); nose.scale.setScalar(hR*0.26); nose.position.set(0, hR*0.18, hR*0.92); hr.add(nose);
+  const nose=new THREE.Mesh(r.sphereGeo, M.nose); nose.scale.setScalar(hR*0.24); nose.position.set(0, hR*0.30, hR*0.86); hr.add(nose);
   for(let i=1;i<N-1;i+=2){
     const s=i/(N-1), yy=L*s, zz=A*s*s;
     [-1,1].forEach(sx=>{ const leg=new THREE.Mesh(r.sphereGeo,M.leg); leg.scale.setScalar(RAD*0.28);

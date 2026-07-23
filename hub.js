@@ -8,7 +8,7 @@ const FAMILIES=[
   {id:'adresse', fr:'Adresse',         en:'Skill',      color:'#b8f34d'},
   {id:'defi',    fr:'Défis',            en:'Challenges', color:'#4db8ff'}
 ];
-const FAMILY={ whackamole:'adresse', butterflies:'peche', ducks:'peche', shooting:'tir', balloons:'tir', chamboultout:'tir', reflex:'adresse', fishing:'peche', ringtoss:'adresse', skeet:'tir', sniper:'tir', fever:'tir', gallery:'tir', horde:'tir', boss:'tir', ducksgold:'peche', ducksrapids:'peche', ducksnight:'peche', ducksbasket:'peche', ducksstorm:'peche', flyswarm:'peche', flyhive:'peche', reflexchaos:'adresse', mirror:'defi', daily:'defi' };
+const FAMILY={ whackamole:'adresse', butterflies:'peche', ducks:'peche', shooting:'tir', balloons:'tir', chamboultout:'tir', reflex:'adresse', fishing:'peche', ringtoss:'adresse', skeet:'tir', sniper:'tir', fever:'tir', gallery:'tir', horde:'tir', boss:'tir', ducksgold:'peche', ducksrapids:'peche', ducksnight:'peche', ducksbasket:'peche', ducksstorm:'peche', flyswarm:'peche', flyhive:'peche', dodge:'adresse', bosschaos:'tir', reflexchaos:'adresse', mirror:'defi', daily:'defi' };
 const famOf=(g)=>FAMILY[g.id]||'adresse';
 
 export class Hub {

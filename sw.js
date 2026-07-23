@@ -1,5 +1,5 @@
 // sw.js — service worker minimal (requis pour l'installabilité PWA / empaquetage Meta)
-const CACHE = 'neon-arcade-v2';
+const CACHE = 'neon-arcade-v3';
 const ASSETS = [
   './', './index.html', './engine.js', './hub.js', './manifest.webmanifest',
   './games/balloons.js',
@@ -7,6 +7,7 @@ const ASSETS = [
   './games/butterflies.js',
   './games/chamboultout.js',
   './games/daily.js',
+  './games/dodge.js',
   './games/ducks.js',
   './games/fever.js',
   './games/fishing.js',

@@ -23,7 +23,14 @@ function res(){
   return R;
 }
 
-export default {
+const STYLES=[
+  {name:'ORBE',    shell:0x2a2140, glow:0x8b6cff, body:'sphere'},
+  {name:'CUBE',    shell:0x1f2a40, glow:0x2ee6d6, body:'box'},
+  {name:'ÉTOILE',  shell:0x3a1a2a, glow:0xff2d95, body:'octa'},
+  {name:'TOTEM',   shell:0x223018, glow:0xb8f34d, body:'cyl'}
+];
+
+const boss = {
   id:'boss',
   name:{fr:'Duel de Boss', en:'Boss Duel'},
   color:'#8b6cff',
@@ -31,18 +38,27 @@ export default {
   theme:'carnival',
   dlc:true, special:true,
 
+  chaos:false,
   _boss:null, _weaks:[], _lures:[], _guns:[], _flash:[0,0], _tracers:[],
-  _level:1, _lureTimer:0,
+  _level:1, _lureTimer:0, _style:0,
 
   init(engine){ res(); },
   buildLayout(engine, spots){},
 
   _buildBoss(engine){
     const r=res(); const g=new THREE.Group(); g.position.copy(BOSS_POS);
-    const body=new THREE.Mesh(new THREE.SphereGeometry(0.42,26,20), r.shell); g.add(body);
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.56,0.025,12,44), r.ring); ring.rotation.x=Math.PI/2.4; g.add(ring); g.userData.ring=ring;
-    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,12), r.eye); eye.position.set(0,0,0.40); g.add(eye);
-    engine.field.add(g); this._boss=g;
+    const st=STYLES[this._style % STYLES.length];
+    const shellMat=new THREE.MeshStandardMaterial({color:st.shell, emissive:st.glow, emissiveIntensity:.4, roughness:.5, metalness:.4});
+    let geo;
+    if(st.body==='box') geo=new THREE.BoxGeometry(0.62,0.62,0.62);
+    else if(st.body==='octa') geo=new THREE.OctahedronGeometry(0.50,0);
+    else if(st.body==='cyl') geo=new THREE.CylinderGeometry(0.34,0.44,0.80,10);
+    else geo=new THREE.SphereGeometry(0.42,26,20);
+    const body=new THREE.Mesh(geo, shellMat); g.add(body); g.userData.body=body;
+    const ringMat=new THREE.MeshStandardMaterial({color:st.glow, emissive:st.glow, emissiveIntensity:.75, roughness:.4});
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.60,0.025,12,44), ringMat); ring.rotation.x=Math.PI/2.4; g.add(ring); g.userData.ring=ring;
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,12), r.eye); eye.position.set(0,0,0.44); g.add(eye);
+    engine.field.add(g); this._boss=g; g.userData.style=st;
     // points faibles autour du corps
     this._weaks=[];
     const n=3+Math.min(3,this._level);
@@ -62,18 +78,23 @@ export default {
     for(const l of this._lures.slice()) engine.field.remove(l.group);
     for(const tr of this._tracers) engine.scene.remove(tr.mesh);
     this._lures.length=0; this._tracers.length=0; this._flash=[0,0];
-    this._level=1; this._lureTimer=2.5;
+    this._level=1; this._lureTimer=2.5; this._style=(Math.random()*STYLES.length)|0;
     this._clearBoss(engine); this._buildBoss(engine);
   },
 
   _spawnLure(engine){
     const r=res(); const g=new THREE.Group();
-    const m=new THREE.Mesh(new THREE.IcosahedronGeometry(0.10,0), r.lure); g.add(m);
+    let kind='rock';
+    if(this.chaos){ const rr=Math.random(); kind = rr<0.22?'bonus' : (rr<0.42?'malus':'rock'); }
+    const mat = kind==='bonus' ? new THREE.MeshStandardMaterial({color:0xb8f34d, emissive:0xb8f34d, emissiveIntensity:.8, roughness:.4})
+             : kind==='malus' ? new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0xff4d5e, emissiveIntensity:.8, roughness:.4})
+             : r.lure;
+    const m=new THREE.Mesh(new THREE.IcosahedronGeometry(0.10,0), mat); g.add(m); g.userData.kind=kind;
     const a=Math.random()*Math.PI*2;
     g.position.copy(BOSS_POS);
     engine.field.add(g);
     const vx=Math.cos(a)*(0.5+Math.random()*0.5), vy=Math.sin(a)*0.35+0.25;
-    this._lures.push({group:g, pos:g.position, v:new THREE.Vector3(vx,vy,0.35+Math.random()*0.25), radius:0.11, t:0});
+    this._lures.push({group:g, pos:g.position, v:new THREE.Vector3(vx,vy,0.9+Math.random()*0.5), radius:0.11, t:0, kind:g.userData.kind});
   },
   _rmLure(engine,l){ engine.field.remove(l.group); const i=this._lures.indexOf(l); if(i>=0) this._lures.splice(i,1); },
 
@@ -104,10 +125,14 @@ export default {
       if(this._weaks.every(w=>!w.alive)){
         engine.good(new THREE.Vector3(BOSS_POS.x,BOSS_POS.y,BOSS_POS.z), 15, '#ffd54a');
         engine.burst(BOSS_POS.clone(), 0xffd54a); engine.sfx.gold();
-        this._level++; this._clearBoss(engine); this._buildBoss(engine);
+        this._level++; this._style++; this._clearBoss(engine); this._buildBoss(engine);
+        engine.popup(new THREE.Vector3(0,1.95,-1.4), STYLES[this._style%STYLES.length].name, '#ffd54a');
       }
     } else if(kind==='lure'){
-      end=hit.pos.clone(); engine.bad(hit.pos.clone(), 3); this._rmLure(engine,hit);
+      end=hit.pos.clone();
+      if(hit.kind==='bonus'){ engine.good(hit.pos.clone(), 6, '#b8f34d'); }
+      else engine.bad(hit.pos.clone(), 3);
+      this._rmLure(engine,hit);
     } else { end=o.clone().addScaledVector(d,8); engine.miss(); }
     const mesh=new THREE.Mesh(res().tracerGeo, new THREE.MeshBasicMaterial({color:this._guns[i]?this._guns[i].userData.color:0x2ee6d6, transparent:true, opacity:.9}));
     const vec=new THREE.Vector3().subVectors(end,o), len=Math.max(0.01,vec.length());
@@ -117,6 +142,8 @@ export default {
 
   update(dt, engine){
     const time=engine.clock.elapsedTime;
+    const alive=this._weaks.filter(w=>w.alive).length;
+    engine.hudExtra=(engine.lang==='en'?'Boss ':'Boss ')+this._level+' · '+(this._boss&&this._boss.userData.style?this._boss.userData.style.name:'')+' · '+(engine.lang==='en'?'cores ':'noyaux ')+alive;
     if(this._boss){
       this._boss.position.x = BOSS_POS.x + Math.sin(time*0.6)*0.55;
       this._boss.position.y = BOSS_POS.y + Math.sin(time*0.9)*0.16;
@@ -130,10 +157,16 @@ export default {
       this._spawnLure(engine);
       this._lureTimer=Math.max(0.6, 2.2-this._level*0.2)*(0.7+Math.random()*0.6);
     }
+    const head=engine.headPos(new THREE.Vector3());
     for(const l of this._lures.slice()){
       l.t+=dt; l.v.y-=0.5*dt; l.pos.addScaledVector(l.v,dt); l.group.position.copy(l.pos);
       l.group.rotation.x+=dt*2; l.group.rotation.y+=dt*1.4;
-      if(l.t>4 || l.pos.y<0.2 || Math.abs(l.pos.x)>2.4) this._rmLure(engine,l);
+      if(l.pos.distanceTo(head)<0.32){        // touché ! il fallait esquiver
+        if(l.kind==='bonus'){ engine.good(l.pos.clone(), 4, '#b8f34d'); }
+        else { engine.bad(l.pos.clone(), l.kind==='malus'?5:3); engine.burst(l.pos.clone(), 0xff4d5e); }
+        this._rmLure(engine,l); continue;
+      }
+      if(l.t>4.5 || l.pos.y<0.2 || Math.abs(l.pos.x)>2.6 || l.pos.z>0.6) this._rmLure(engine,l);
     }
     for(let i=0;i<2;i++){
       if(this._flash[i]>0){ this._flash[i]-=dt; const gn=this._guns[i]; if(gn) gn.userData.tip.scale.setScalar(1+Math.max(0,this._flash[i])*40); }
@@ -150,3 +183,11 @@ export default {
     engine.clearTool();
   }
 };
+
+export default boss;
+// Variante : le boss lâche aussi des bonus (verts, à tirer) et des malus (rouges, à fuir).
+export const bossChaos = Object.assign({}, boss, {
+  id:'bosschaos', name:{fr:'Boss — Chaos', en:'Boss — Chaos'}, color:'#ff4d5e',
+  chaos:true, dlc:true, special:true,
+  _boss:null, _weaks:[], _lures:[], _guns:[], _flash:[0,0], _tracers:[]
+});

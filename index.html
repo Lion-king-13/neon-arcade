@@ -142,7 +142,8 @@ import skeet from './games/skeet.js';
 import fever from './games/fever.js';
 import gallery from './games/gallery.js';
 import horde from './games/horde.js';
-import boss from './games/boss.js';
+import boss, { bossChaos } from './games/boss.js';
+import dodge from './games/dodge.js';
 import mirror from './games/mirror.js';
 import daily from './games/daily.js';
 
@@ -174,7 +175,7 @@ let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
 const t = k => T[lang][k];
 
 const engine = new Engine();
-engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, skeet, reflexchaos, sniper, ducksgold, ducksrapids, ducksnight, ducksbasket, ducksstorm, flyswarm, flyhive, fever, gallery, horde, boss, mirror, daily]);
+engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, dodge, skeet, reflexchaos, sniper, ducksgold, ducksrapids, ducksnight, ducksbasket, ducksstorm, flyswarm, flyhive, fever, gallery, horde, boss, bossChaos, mirror, daily]);
 const hub = new Hub(engine);
 engine.setHub(hub);
 
