@@ -525,7 +525,9 @@ export class Engine {
       reflexchaos:{fr:'Dalles + dorées & rouges à éviter.',en:'Tiles + gold & red to avoid.'},
       sniper:{fr:'Cibles petites & lointaines, sans visée.',en:'Small far targets, no aim beam.'},
       ducksgold:{fr:'Ruée de canards dorés, sans bombes.',en:'Golden duck rush, no bombs.'},
-      ducksrapids:{fr:'Le courant s\'emballe, canards rapides.',en:'Fast current, speedy ducks.'}
+      ducksrapids:{fr:'Le courant s\'emballe, canards rapides.',en:'Fast current, speedy ducks.'},
+      fever:{fr:'La fièvre monte ! Capsules de pouvoir.',en:'Fever rising! Power capsules.'},
+      gallery:{fr:'Cibles variées : canard, peluche, cloche…',en:'Varied targets: duck, teddy, bell…'}
     };
     const c=this.board.ctx, W=this.board.canvas.width, H=this.board.canvas.height; c.clearRect(0,0,W,H);
     c.fillStyle='rgba(15,20,34,.92)'; this._rr(c,0,0,W,H,34); c.fill();

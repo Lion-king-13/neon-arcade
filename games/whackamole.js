@@ -36,7 +36,8 @@ function res(){
       shell: new THREE.MeshStandardMaterial({color:0xff4d5e, emissive:0xb0202d, emissiveIntensity:.5, roughness:.4, metalness:.2}),
       spot:  new THREE.MeshStandardMaterial({color:0x2a0a0e, roughness:.6}),
       spike: new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0x6a3a00, roughness:.5}),
-      leg:   new THREE.MeshStandardMaterial({color:0x161018, roughness:.7})
+      leg:   new THREE.MeshStandardMaterial({color:0x161018, roughness:.7}),
+      nose:  new THREE.MeshStandardMaterial({color:0xff8fae, emissive:0xc2506e, emissiveIntensity:.5, roughness:.5})
     }
   };
   return R;
@@ -68,6 +69,7 @@ function makeGrub(gold){
     const tip=new THREE.Mesh(r.antTipGeo,M.antTip); tip.position.set(0,0.035,0); ant.add(tip); hr.add(ant);
   });
   g.add(hr); wig.push(hr);
+  const nose=new THREE.Mesh(r.sphereGeo, M.nose); nose.scale.setScalar(hR*0.26); nose.position.set(0, hR*0.18, hR*0.92); hr.add(nose);
   for(let i=1;i<N-1;i+=2){
     const s=i/(N-1), yy=L*s, zz=A*s*s;
     [-1,1].forEach(sx=>{ const leg=new THREE.Mesh(r.sphereGeo,M.leg); leg.scale.setScalar(RAD*0.28);
@@ -85,6 +87,7 @@ function makeBeetle(){
     const sp=new THREE.Mesh(r.sphereGeo,M.spot); sp.scale.set(0.016,0.012,0.006); sp.position.set(x,L+y,0.05); g.add(sp);
   });
   const head=new THREE.Mesh(r.sphereGeo,M.shell); head.scale.setScalar(0.045); head.position.set(0,L+0.075,0); g.add(head);
+  const bnose=new THREE.Mesh(r.sphereGeo,M.nose); bnose.scale.setScalar(0.013); bnose.position.set(0,L+0.070,0.042); g.add(bnose);
   [-1,1].forEach(sx=>{
     const e=new THREE.Mesh(r.eyeGeo,M.eye); e.position.set(sx*0.02,L+0.09,0.02);
     const p=new THREE.Mesh(r.pupGeo,M.pupil); p.position.set(0,0.012,0); e.add(p); g.add(e);

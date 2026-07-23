@@ -7,7 +7,7 @@ const FAMILIES=[
   {id:'peche',   fr:'Pêche & Attrape', en:'Catch & Fish', color:'#2ee6d6'},
   {id:'adresse', fr:'Adresse',         en:'Skill',      color:'#b8f34d'}
 ];
-const FAMILY={ whackamole:'adresse', butterflies:'peche', ducks:'peche', shooting:'tir', balloons:'tir', chamboultout:'tir', reflex:'adresse', fishing:'peche', ringtoss:'adresse', skeet:'tir', sniper:'tir', ducksgold:'peche', ducksrapids:'peche', reflexchaos:'adresse' };
+const FAMILY={ whackamole:'adresse', butterflies:'peche', ducks:'peche', shooting:'tir', balloons:'tir', chamboultout:'tir', reflex:'adresse', fishing:'peche', ringtoss:'adresse', skeet:'tir', sniper:'tir', fever:'tir', gallery:'tir', ducksgold:'peche', ducksrapids:'peche', reflexchaos:'adresse' };
 const famOf=(g)=>FAMILY[g.id]||'adresse';
 
 export class Hub {

@@ -66,8 +66,15 @@ export default {
       const hc=[0x2ee6d6,0xff4d5e][i];
       const bob=new THREE.Mesh(new THREE.SphereGeometry(0.026,12,10), new THREE.MeshStandardMaterial({color:hc, emissive:hc, emissiveIntensity:.6, roughness:.4}));
       const top=new THREE.Mesh(new THREE.SphereGeometry(0.014,8,8), new THREE.MeshBasicMaterial({color:0xf4f6fb})); top.position.y=0.024; bob.add(top);
+      // asticot (appât) sous le bouchon
+      const baitMat=new THREE.MeshStandardMaterial({color:0xf6e3c4, emissive:0x6a5236, emissiveIntensity:.3, roughness:.6});
+      const bait=new THREE.Group();
+      for(let k=0;k<3;k++){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.009-k*0.001,8,6), baitMat); s.position.set(0,-k*0.011,0); bait.add(s); }
+      bait.position.y=-0.030; bob.add(bait);
       engine.field.add(bob);
-      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]), new THREE.LineBasicMaterial({color:hc, transparent:true, opacity:.7}));
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]), new THREE.LineBasicMaterial({color:hc, transparent:true, opacity:.85}));
+      line.frustumCulled=false; line.renderOrder=2;
+      bob.frustumCulled=false;
       engine.field.add(line);
       this._hands[i]={state:'reeled', bob, line, vel:new THREE.Vector3(), pos:new THREE.Vector3(), biteFish:null, hc};
     }
@@ -120,6 +127,7 @@ export default {
       h.bob.position.copy(h.pos);
       h.bob.material.emissiveIntensity = h.biteFish? 1.0 : 0.5;
       h.line.geometry.setFromPoints([tip.clone(), h.pos.clone()]);
+      h.line.geometry.attributes.position.needsUpdate=true;
     }
     this._spawnTimer-=dt; const maxFish={easy:3,normal:4,hard:5}[engine.settings.diff];
     if(this._spawnTimer<=0 && this._fish.length<maxFish){ this._spawn(engine); this._spawnTimer={easy:1.2,normal:0.9,hard:0.7}[engine.settings.diff]*(0.6+Math.random()*0.7); }

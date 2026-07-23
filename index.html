@@ -139,6 +139,8 @@ import reflexpads, { chaos as reflexchaos } from './games/reflexpads.js';
 import fishing from './games/fishing.js';
 import ringtoss from './games/ringtoss.js';
 import skeet from './games/skeet.js';
+import fever from './games/fever.js';
+import gallery from './games/gallery.js';
 
 const T = {
   fr:{
@@ -168,7 +170,7 @@ let lang = (navigator.language||'fr').slice(0,2)==='fr' ? 'fr' : 'fr';
 const t = k => T[lang][k];
 
 const engine = new Engine();
-engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, skeet, reflexchaos, sniper, ducksgold, ducksrapids]);
+engine.registerGames([whackamole, butterflies, ducks, shooting, balloons, chamboultout, reflexpads, fishing, ringtoss, skeet, reflexchaos, sniper, ducksgold, ducksrapids, fever, gallery]);
 const hub = new Hub(engine);
 engine.setHub(hub);
 

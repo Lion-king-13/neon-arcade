@@ -68,9 +68,11 @@ function makeButterfly(type){
   const bodyMat = isBee ? r.bee : r.body;
   for(let i=0;i<3;i++){ const s=new THREE.Mesh(r.seg, bodyMat); const sc=0.014-(i*0.002); s.scale.set(sc,sc,sc*1.4); s.position.z=0.02-i*0.02; g.add(s); }
   if(isBee){ for(let k=0;k<2;k++){ const st=new THREE.Mesh(r.seg, r.stripe); st.scale.set(0.0135,0.0135,0.004); st.position.z=0.0 - k*0.02; g.add(st); } }
-  // antennes
-  [-1,1].forEach(sx=>{ const a=new THREE.Mesh(r.antGeo, r.ant); a.position.set(sx*0.006,0.01,0.05); a.rotation.set(-0.6,0,sx*0.3); g.add(a);
+  // antennes dressées (vers le haut/avant)
+  [-1,1].forEach(sx=>{ const a=new THREE.Mesh(r.antGeo, r.ant); a.position.set(sx*0.006,0.012,0.05); a.rotation.set(0.55,0,sx*0.3); g.add(a);
     const tip=new THREE.Mesh(new THREE.SphereGeometry(0.005,6,6), r.ant); tip.position.set(0,0.016,0); a.add(tip); });
+  // dard des abeilles (à l'arrière)
+  if(isBee){ const sting=new THREE.Mesh(new THREE.ConeGeometry(0.0045,0.020,7), r.ant); sting.rotation.x=-Math.PI/2; sting.position.set(0,0,-0.036); g.add(sting); }
   // ailes (bat en "livre" autour de l'axe avant-arrière)
   const span=isBee?0.05:0.075, len=isBee?0.05:0.085;
   const tex=isBee? r.beeWingTex : wingTexture(...PALETTES[(Math.random()*PALETTES.length)|0]);
