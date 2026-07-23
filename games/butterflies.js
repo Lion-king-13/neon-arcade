@@ -86,12 +86,13 @@ function makeButterfly(type){
   return g;
 }
 
-export default {
+const butterflies = {
   id:'butterflies',
   name:{fr:'Attrape-Papillons', en:'Butterfly Catch'},
   color:'#8b6cff',
   usesSurfaces:false,
   theme:'meadow',
+  swarm:false, hive:false,
 
   _active:[], _spawnTimer:0, _nets:[],
 
@@ -107,8 +108,9 @@ export default {
 
   _spawn(engine){
     let type='normal'; const rnd=Math.random();
-    const badChance={easy:0.10,normal:0.15,hard:0.22}[engine.settings.diff];
-    if(rnd<badChance) type='bad'; else if(rnd<badChance+0.09) type='gold';
+    if(this.hive){ type = rnd<0.72 ? 'bad' : (rnd<0.90 ? 'normal' : 'gold'); }
+    else { const badChance={easy:0.10,normal:0.15,hard:0.22}[engine.settings.diff];
+      if(rnd<badChance) type='bad'; else if(rnd<badChance+0.09) type='gold'; }
     const g=makeButterfly(type);
     const home=new THREE.Vector3(
       CENTER.x+(Math.random()-.5)*2*HALF.x, CENTER.y+(Math.random()-.5)*2*HALF.y, CENTER.z+(Math.random()-.5)*2*HALF.z);
@@ -126,9 +128,11 @@ export default {
     this._spawnTimer-=dt;
     if(this._spawnTimer<=0){
       this._spawn(engine);
-      const maxConc={easy:3,normal:4,hard:6}[engine.settings.diff];
-      if(this._active.length<maxConc && Math.random()<0.5) this._spawn(engine);
-      this._spawnTimer={easy:1.05,normal:0.82,hard:0.58}[engine.settings.diff]*(0.7+Math.random()*0.6);
+      const base={easy:3,normal:4,hard:6}[engine.settings.diff];
+      const maxConc=this.swarm?base*2+3:base;
+      const extra=this.swarm?3:1;
+      for(let k=0;k<extra;k++) if(this._active.length<maxConc && Math.random()<0.7) this._spawn(engine);
+      this._spawnTimer={easy:1.05,normal:0.82,hard:0.58}[engine.settings.diff]*(this.swarm?0.45:1)*(0.7+Math.random()*0.6);
     }
     const time=engine.clock.elapsedTime;
     for(const o of this._active.slice()){
@@ -163,13 +167,22 @@ export default {
     // capture au filet
     for(const net of this._nets){
       if(!net) continue;
-      net.userData.cp.getWorldPosition(engine._tmp2);
+      engine.toolPos(net.userData.cp, engine._tmp2);
       for(const o of this._active){
         if(o.caught) continue;
         if(engine._tmp2.distanceTo(o.group.position) < CATCH_R){
           o.caught=true; const pos=o.group.position.clone();
           if(o.type==='bad') engine.bad(pos,3);
-          else engine.good(pos, o.type==='gold'?5:1, o.type==='gold'?'#ffd54a':'#eaffd2');
+          else {
+            let pts=o.type==='gold'?5:1;
+            if(this.swarm){
+              const now=engine.clock.elapsedTime;
+              if(now - (this._lastCatch||-9) < 0.6){ this._chain=(this._chain||1)+1; } else this._chain=1;
+              this._lastCatch=now;
+              if(this._chain>1){ pts*=this._chain; engine.popup(pos, 'x'+this._chain, '#ff2d95'); }
+            }
+            engine.good(pos, pts, o.type==='gold'?'#ffd54a':'#eaffd2');
+          }
           this._pop(engine,o);
         }
       }
@@ -178,7 +191,18 @@ export default {
 
   cleanup(engine){
     for(const o of this._active.slice()) engine.field.remove(o.group);
-    this._active.length=0;
+    this._active.length=0; this._chain=1; this._lastCatch=-9;
     engine.clearTool();
   }
 };
+
+export default butterflies;
+// Variantes DLC
+export const swarm = Object.assign({}, butterflies, {
+  id:'flyswarm', name:{fr:'Papillons — Nuée', en:'Butterflies — Swarm'}, color:'#ff2d95',
+  swarm:true, dlc:true, special:true, _active:[], _nets:[]
+});
+export const hive = Object.assign({}, butterflies, {
+  id:'flyhive', name:{fr:'Papillons — Ruche', en:'Butterflies — Hive'}, color:'#ffd54a',
+  hive:true, dlc:true, special:true, _active:[], _nets:[]
+});

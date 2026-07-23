@@ -62,8 +62,9 @@ export class Engine {
     renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
     renderer.xr.enabled=true; document.body.appendChild(renderer.domElement); this.renderer=renderer;
 
-    scene.add(new THREE.HemisphereLight(0x9fb4c9,0x203028,1.1));
-    const key=new THREE.DirectionalLight(0xcfe0ff,0.85); key.position.set(2,5,2); scene.add(key);
+    this.hemi=new THREE.HemisphereLight(0x9fb4c9,0x203028,1.1); scene.add(this.hemi);
+    const key=new THREE.DirectionalLight(0xcfe0ff,0.85); key.position.set(2,5,2); scene.add(key); this.key=key;
+    this._lightBase={hemi:1.1, key:0.85};
     this.rim=new THREE.PointLight(0x8b6cff,5,12); this.rim.position.set(0,2.4,-1.2); scene.add(this.rim);
 
     this.grid=new THREE.GridHelper(24,48,0x2ee6d6,0x123028);
@@ -250,13 +251,18 @@ export class Engine {
       this.controllers.push(c);
     }
   }
-  controllerPos(i,out){ this.controllers[i].getWorldPosition(out); return out; }
-  controllerVel(i,out){ out.copy(this._ctrlVel[i]); return out; }
-  headPos(out){ if(this.renderer.xr.isPresenting) this.renderer.xr.getCamera().getWorldPosition(out); else this.camera.getWorldPosition(out); return out; }
+  controllerPos(i,out){ this.controllers[i].getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
+  // Position monde d'un élément d'outil (respecte le mode miroir).
+  toolPos(obj,out){ obj.getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
+  setMirror(on){ this.mirror=!!on; this.field.scale.x = on?-1:1; }
+  controllerVel(i,out){ out.copy(this._ctrlVel[i]); if(this.mirror) out.x=-out.x; return out; }
+  headPos(out){ if(this.renderer.xr.isPresenting) this.renderer.xr.getCamera().getWorldPosition(out); else this.camera.getWorldPosition(out); if(this.mirror) out.x=-out.x; return out; }
   // Rayon de visée : remplit origin (position) et dir (direction -Z monde) du contrôleur i.
   aimRay(i, origin, dir){
     const c=this.controllers[i]; c.getWorldPosition(origin);
-    dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q)); return dir;
+    dir.set(0,0,-1).applyQuaternion(c.getWorldQuaternion(this._q));
+    if(this.mirror){ origin.x=-origin.x; dir.x=-dir.x; }
+    return dir;
   }
   // Filet de capture néon (poche maillée au-delà du cerceau). userData.cp = capture (dans le cerceau).
   makeNet(i){
@@ -306,7 +312,7 @@ export class Engine {
     g.userData.tip=glow; g.userData.color=color; g.userData.beam=beam;
     return g;
   }
-  eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); cb(this._tmp,i); } }
+  eachMallet(cb){ for(let i=0;i<this.mallets.length;i++){ this.mallets[i].getWorldPosition(this._tmp); if(this.mirror) this._tmp.x=-this._tmp.x; cb(this._tmp,i); } }
   // Échange l'outil en main. space='grip' (tenu) ou 'ray' (aligné sur la visée).
   setTool(fn, space){
     this.clearTool();
@@ -409,7 +415,8 @@ export class Engine {
   burst(pos,color){
     const geo=this._partGeo||(this._partGeo=new THREE.SphereGeometry(0.014,6,6));
     const mat=new THREE.MeshBasicMaterial({color});
-    for(let i=0;i<12;i++){ const p=new THREE.Mesh(geo,mat); p.position.copy(pos);
+    const P=this.mirror?new THREE.Vector3(-pos.x,pos.y,pos.z):pos;
+    for(let i=0;i<12;i++){ const p=new THREE.Mesh(geo,mat); p.position.copy(P);
       const v=new THREE.Vector3((Math.random()-.5),(Math.random()*.8+.2),(Math.random()-.5)).multiplyScalar(1.5);
       this.scene.add(p); this.particles.push({mesh:p,v,life:0.5}); }
   }
@@ -418,7 +425,7 @@ export class Engine {
     const cv=document.createElement('canvas'); cv.width=256; cv.height=128; const c=cv.getContext('2d');
     c.textAlign='center'; c.font='900 96px Segoe UI, sans-serif'; c.lineWidth=10; c.strokeStyle='rgba(0,0,0,.55)'; c.strokeText(text,128,92); c.fillStyle=color; c.fillText(text,128,92);
     const tex=new THREE.CanvasTexture(cv); const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthTest:false});
-    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.09),mat); mesh.position.copy(pos); mesh.renderOrder=999; this.scene.add(mesh);
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.09),mat); mesh.position.copy(this.mirror?new THREE.Vector3(-pos.x,pos.y,pos.z):pos); mesh.renderOrder=999; this.scene.add(mesh);
     this.popups.push({mesh,mat,life:0.85});
   }
   _updatePopups(dt){ for(let i=this.popups.length-1;i>=0;i--){ const u=this.popups[i]; u.life-=dt; u.mesh.position.y+=dt*0.4; u.mesh.quaternion.copy(this._vq); u.mat.opacity=Math.max(0,u.life/0.85); if(u.life<=0){ this.scene.remove(u.mesh); u.mesh.material.map.dispose(); this.popups.splice(i,1); } } }
@@ -487,7 +494,7 @@ export class Engine {
   clearField(){ while(this.field.children.length){ this.field.remove(this.field.children[0]); } }
 
   showHub(){
-    this.vs=null; if(this.hub) this.hub._view='base';
+    this.vs=null; this.setMirror(false); if(this.hub) this.hub._view='base';
     this.state='hub'; this.showHUD(false); this.clearButtons();
     if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
     this.clearField(); this.clearPopups();
@@ -496,7 +503,7 @@ export class Engine {
     this.hub.render();
   }
   showSpecialHub(){
-    this.vs=null; this.state='hub'; this.showHUD(false); this.clearButtons();
+    this.vs=null; this.setMirror(false); this.state='hub'; this.showHUD(false); this.clearButtons();
     if(this.currentGame){ this.currentGame.cleanup?.(this); this.currentGame=null; }
     this.clearField(); this.clearPopups();
     this.useEnvironment('hub');
@@ -527,7 +534,16 @@ export class Engine {
       ducksgold:{fr:'Ruée de canards dorés, sans bombes.',en:'Golden duck rush, no bombs.'},
       ducksrapids:{fr:'Le courant s\'emballe, canards rapides.',en:'Fast current, speedy ducks.'},
       fever:{fr:'La fièvre monte ! Capsules de pouvoir.',en:'Fever rising! Power capsules.'},
-      gallery:{fr:'Cibles variées : canard, peluche, cloche…',en:'Varied targets: duck, teddy, bell…'}
+      gallery:{fr:'Cibles variées : canard, peluche, cloche…',en:'Varied targets: duck, teddy, bell…'},
+      horde:{fr:'Vagues sans fin, 3 vies. Tiens bon !',en:'Endless waves, 3 lives. Hold on!'},
+      boss:{fr:'Vise les points faibles, évite les leurres.',en:'Hit weak points, avoid decoys.'},
+      ducksnight:{fr:'Pénombre : canards phosphorescents.',en:'Darkness: glowing ducks.'},
+      ducksbasket:{fr:'Le panier se déplace, anticipe !',en:'The basket moves, anticipate!'},
+      ducksstorm:{fr:'L\'eau tangue et bouscule les canards.',en:'Choppy water tosses the ducks.'},
+      flyswarm:{fr:'Essaims denses : enchaîne les prises.',en:'Dense swarms: chain your catches.'},
+      flyhive:{fr:'Que des abeilles… et de rares papillons.',en:'Mostly bees… rare butterflies.'},
+      mirror:{fr:'Un jeu au hasard, monde inversé.',en:'Random game, mirrored world.'},
+      daily:{fr:'Le défi imposé du jour.',en:'Today\'s imposed challenge.'}
     };
     const c=this.board.ctx, W=this.board.canvas.width, H=this.board.canvas.height; c.clearRect(0,0,W,H);
     c.fillStyle='rgba(15,20,34,.92)'; this._rr(c,0,0,W,H,34); c.fill();
@@ -545,6 +561,7 @@ export class Engine {
     }
     this.board.tex.needsUpdate=true;
   }
+  endNow(){ if(this.state==='play') this._endGame(); }
   /* ---------- Tableau des scores (local) ---------- */
   _lbKey(id){ return 'neonarcade_lb_'+id+'_'+this.settings.diff+'_'+this.settings.dur; }
   _recordScore(id){
@@ -601,7 +618,7 @@ export class Engine {
     this.state='count'; this.countT=0; this.countN=3;
     this.drawBoard([{text:'3',s:220,col:'#2ee6d6'}]); this.sfx.count(); this.speak(this.t('ready'));
   }
-  _startPlay(){ this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); this.timeLeft=this.settings.dur; this.sfx.go(); this.speak(this.t('go')); }
+  _startPlay(){ this.state='play'; this.showBoard(false); this.setButtons([]); this.showHUD(true); this.timeLeft=(this.currentGame&&this.currentGame.endless)?0:this.settings.dur; this.sfx.go(); this.speak(this.t('go')); }
   _endGame(){
     this.currentGame.onEnd?.(this);
     if(this.vs && this.vs.active){
@@ -800,7 +817,9 @@ export class Engine {
         if(this.countN>0){ this.drawBoard([{text:String(this.countN),s:220,col:'#2ee6d6'}]); this.sfx.count(); }
         else { this.drawBoard([{text:this.t('go'),s:200,col:'#b8f34d'}]); if(this._resuming){ this._resuming=false; this._resumePlay(); } else this._startPlay(); } }
     } else if(this.state==='play'){
-      this.timeLeft-=dt; this.currentGame.update(dt,this); this.drawHUD(); if(this.timeLeft<=0) this._endGame();
+      if(this.currentGame.endless){ this.timeLeft+=dt; } else { this.timeLeft-=dt; }
+      this.currentGame.update(dt,this); this.drawHUD();
+      if(!this.currentGame.endless && this.timeLeft<=0) this._endGame();
     } else if(this.state==='hub'){
       this.hub?.update?.(dt,this);
     }

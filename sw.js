@@ -1,10 +1,23 @@
 // sw.js — service worker minimal (requis pour l'installabilité PWA / empaquetage Meta)
-const CACHE = 'neon-arcade-v1';
+const CACHE = 'neon-arcade-v2';
 const ASSETS = [
   './', './index.html', './engine.js', './hub.js', './manifest.webmanifest',
-  './games/whackamole.js', './games/butterflies.js', './games/ducks.js',
-  './games/shooting.js', './games/balloons.js', './games/chamboultout.js',
-  './games/reflexpads.js', './games/fishing.js', './games/ringtoss.js',
+  './games/balloons.js',
+  './games/boss.js',
+  './games/butterflies.js',
+  './games/chamboultout.js',
+  './games/daily.js',
+  './games/ducks.js',
+  './games/fever.js',
+  './games/fishing.js',
+  './games/gallery.js',
+  './games/horde.js',
+  './games/mirror.js',
+  './games/reflexpads.js',
+  './games/ringtoss.js',
+  './games/shooting.js',
+  './games/skeet.js',
+  './games/whackamole.js',
   './assets/icon-192.png', './assets/icon-512.png'
 ];
 

@@ -63,7 +63,7 @@ const ducks = {
   color:'#2ee6d6',
   usesSurfaces:false,
   theme:'meadow',
-  goldRush:false, fast:false,
+  goldRush:false, fast:false, night:false, moveBasket:false, storm:false,
 
   _active:[], _spawnTimer:0, _hooks:[], _hooked:[null,null], _basket:null,
 
@@ -72,19 +72,20 @@ const ducks = {
   buildLayout(engine, spots){
     const r=res();
     const water=new THREE.Mesh(new THREE.RingGeometry(IN_R, OUT_R, 48), r.water);
-    water.rotation.x=-Math.PI/2; water.position.set(0,WATER_Y,0); engine.field.add(water);
+    water.rotation.x=-Math.PI/2; water.position.set(0,WATER_Y,0); engine.field.add(water); this._water=water;
     [IN_R,OUT_R].forEach(rad=>{ const rim=new THREE.Mesh(new THREE.TorusGeometry(rad,0.02,10,64), r.rim); rim.rotation.x=-Math.PI/2; rim.position.set(0,WATER_Y,0); engine.field.add(rim); });
     // panier
     const b=new THREE.Group();
     const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.12,0.2,16,1,true), r.basketMat); cyl.position.y=0; b.add(cyl);
     const bottom=new THREE.Mesh(new THREE.CircleGeometry(0.12,16), r.basketMat); bottom.rotation.x=-Math.PI/2; bottom.position.y=-0.1; b.add(bottom);
     const rim=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.014,10,28), r.basketRim); rim.rotation.x=-Math.PI/2; rim.position.y=0.1; b.add(rim);
-    b.position.copy(BASKET); engine.field.add(b); this._basket=b;
+    b.position.copy(BASKET); engine.field.add(b); this._basket=b; this._bpos=BASKET.clone();
   },
 
   start(engine){
     this._hooks=[];
-    engine.setTool((i)=>{ const h=engine.makeHook(i); this._hooks[i]=h; return h; });
+    if(this.night){ this._dim=true; if(engine.hemi) engine.hemi.intensity=0.16; if(engine.key) engine.key.intensity=0.12; if(engine.scene.fog) engine.scene.fog.density=Math.max(engine.scene.fog.density,0.10); }
+    engine.setTool((i)=>{ const h=engine.makeHook(i); if(this.night){ const lamp=new THREE.SpotLight(0xffeeba, 6, 3.2, 0.5, 0.6, 1.2); lamp.position.set(0,0,-0.05); const tgt=new THREE.Object3D(); tgt.position.set(0,-0.3,-1.2); h.add(tgt); lamp.target=tgt; h.add(lamp); } this._hooks[i]=h; return h; });
     for(const o of this._active.slice()) engine.field.remove(o.group);
     if(this._ripples) for(const rp of this._ripples) engine.field.remove(rp.m);
     this._ripples=[]; this._rippleT=0.3;
@@ -108,7 +109,7 @@ const ducks = {
       if(rnd<badChance && this._bombCount()<2) type='bad';
       else if(rnd<badChance+0.10) type='gold';
     }
-    const g=makeDuck(type); engine.field.add(g);
+    const g=makeDuck(type); if(this.night) g.traverse(o=>{ if(o.material&&o.material.emissive){ o.material=o.material.clone(); o.material.emissiveIntensity=1.4; } }); engine.field.add(g);
     const ang=Math.random()*Math.PI*2, rad=IN_R+0.1+Math.random()*(OUT_R-IN_R-0.2);
     const life = type==='bad' ? (this.fast?4:5.5) : (this.fast ? (4.5+Math.random()*2) : (8+Math.random()*3));
     const wBase=this.fast?0.30:0.12, wRng=this.fast?0.45:0.28;
@@ -128,14 +129,19 @@ const ducks = {
       this._spawnTimer={easy:0.8,normal:0.6,hard:0.45}[engine.settings.diff]*(rush?0.6:1)*(0.6+Math.random()*0.6);
     }
     const time=engine.clock.elapsedTime;
-    if(this.fast && this._ripples){
+    if(this.moveBasket && this._basket && this._bpos){
+      const a=time*0.7; this._bpos.set(Math.sin(a)*0.42, BASKET.y, -0.28 + Math.cos(a)*0.10);
+      this._basket.position.copy(this._bpos);
+    }
+    if(this.storm && this._water){ this._water.position.y = WATER_Y + Math.sin(time*2.2)*0.02; this._water.rotation.z = Math.sin(time*1.3)*0.05; }
+    if((this.fast||this.storm) && this._ripples){
       this._rippleT-=dt; if(this._rippleT<=0){ this._spawnRipple(engine); this._rippleT=0.22+Math.random()*0.3; }
       for(let k=this._ripples.length-1;k>=0;k--){ const rp=this._ripples[k]; rp.t+=dt; const s=1+rp.t*7; rp.m.scale.set(s,s,s); rp.m.material.opacity=Math.max(0,0.6-rp.t*0.7); if(rp.t>0.9){ engine.field.remove(rp.m); this._ripples.splice(k,1); } }
     }
 
     // positions des pointes de crochet
     const tips=[];
-    for(let i=0;i<2;i++){ if(this._hooks[i]){ const v=new THREE.Vector3(); this._hooks[i].userData.cp.getWorldPosition(v); tips[i]=v; } }
+    for(let i=0;i<2;i++){ if(this._hooks[i]){ const v=new THREE.Vector3(); engine.toolPos(this._hooks[i].userData.cp, v); tips[i]=v; } }
 
     for(const o of this._active.slice()){
       o.tt+=dt;
@@ -147,7 +153,7 @@ const ducks = {
           o.group.position.lerp(new THREE.Vector3(tip.x, tip.y-0.14, tip.z), Math.min(1,dt*14));
           o.group.rotation.y += dt*2;
           // dépôt dans le panier
-          if(o.group.position.distanceTo(BASKET) < BASKET_R){
+          if(o.group.position.distanceTo(this._bpos||BASKET) < BASKET_R){
             const pos=o.group.position.clone();
             engine.good(pos, o.type==='gold'?5:1, o.type==='gold'?'#ffd54a':'#d6f9ff');
             this._hooked[o.hand]=null; this._pop(engine,o); continue;
@@ -160,7 +166,8 @@ const ducks = {
         // dérive sur la rivière
         o.ang += o.w*dt;
         const x=Math.cos(o.ang)*o.rad, z=Math.sin(o.ang)*o.rad;
-        const y=WATER_Y + o.group.userData.float + Math.sin(time*2+o.ph)*0.005;
+        let y=WATER_Y + o.group.userData.float + Math.sin(time*2+o.ph)*0.005;
+        if(this.storm){ y += Math.sin(time*2.6 + x*2.2 + z*1.7)*0.045; o.ang += Math.sin(time*0.9+o.ph)*dt*0.5; }
         o.group.position.set(x,y,z);
         o.group.rotation.y = -o.ang + (o.w>0?Math.PI/2:-Math.PI/2);
         if(o.type==='bad' && o.group.userData.spark) o.group.userData.spark.scale.setScalar(1+Math.sin(time*18+o.ph)*0.3);
@@ -188,6 +195,7 @@ const ducks = {
   },
 
   cleanup(engine){
+    if(this.night && this._dim){ if(engine.hemi) engine.hemi.intensity=engine._lightBase.hemi; if(engine.key) engine.key.intensity=engine._lightBase.key; engine.useEnvironment(engine.settings.mode==='ar'?'gameAR':'gameVR'); this._dim=false; }
     for(const o of this._active.slice()) engine.field.remove(o.group);
     if(this._ripples){ for(const rp of this._ripples) engine.field.remove(rp.m); this._ripples=[]; }
     this._active.length=0; this._hooked=[null,null]; this._basket=null;
@@ -205,5 +213,20 @@ export const goldrush = Object.assign({}, ducks, {
 export const rapids = Object.assign({}, ducks, {
   id:'ducksrapids', name:{fr:'Canards — Rapides', en:'Ducks — Rapids'}, color:'#4db8ff',
   goldRush:false, fast:true, dlc:true, special:true,
+  _active:[], _hooked:[null,null], _hooks:[], _basket:null
+});
+export const night = Object.assign({}, ducks, {
+  id:'ducksnight', name:{fr:'Canards — Nuit', en:'Ducks — Night'}, color:'#8b6cff',
+  night:true, dlc:true, special:true,
+  _active:[], _hooked:[null,null], _hooks:[], _basket:null
+});
+export const movingBasket = Object.assign({}, ducks, {
+  id:'ducksbasket', name:{fr:'Canards — Panier Mobile', en:'Ducks — Moving Basket'}, color:'#b8f34d',
+  moveBasket:true, dlc:true, special:true,
+  _active:[], _hooked:[null,null], _hooks:[], _basket:null
+});
+export const storm = Object.assign({}, ducks, {
+  id:'ducksstorm', name:{fr:'Canards — Tempête', en:'Ducks — Storm'}, color:'#4db8ff',
+  storm:true, fast:true, dlc:true, special:true,
   _active:[], _hooked:[null,null], _hooks:[], _basket:null
 });
